@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,7 +38,7 @@ func main() {
 	routes.RouteCommits(v1.Group("/commits"))
 
 	// Start server
-	app.Listen(":8000")
+	app.Listen(fmt.Sprintf(":%s", config.GetPort()))
 
 	// After server stops:
 	// Close database connection
