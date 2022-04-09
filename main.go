@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/joshnies/qc-api/db"
+	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/routes/projects"
 )
 
@@ -20,7 +20,7 @@ func main() {
 	}
 
 	// Initialize database client
-	db.Init()
+	config.InitDatabase()
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
@@ -42,7 +42,7 @@ func main() {
 	app.Listen(":8000")
 
 	// Close database connection
-	if err := db.I.Disconnect(context.TODO()); err != nil {
+	if err := config.MI.Client.Disconnect(context.TODO()); err != nil {
 		panic(err)
 	}
 }

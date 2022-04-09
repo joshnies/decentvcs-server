@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/qc-api/db"
+	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,7 +20,7 @@ func GetManyProjects(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get projects from database
-	cur, err := db.DB.Collection("projects").Find(ctx, bson.M{})
+	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(http.StatusInternalServerError).SendString("Internal server error")
@@ -49,7 +49,7 @@ func GetOneProject(c *fiber.Ctx) error {
 
 	// Get project from database
 	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
-	err := db.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(http.StatusInternalServerError).SendString("Internal server error")
