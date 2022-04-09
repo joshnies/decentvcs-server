@@ -97,8 +97,9 @@ func CreateProject(c *fiber.Ctx) error {
 
 	// Create new project
 	project := models.Project{
-		Id:   primitive.NewObjectID(),
-		Name: body.Name,
+		Id:        primitive.NewObjectID(),
+		CreatedAt: time.Now().Unix(),
+		Name:      body.Name,
 	}
 
 	// Create project in database
@@ -112,3 +113,6 @@ func CreateProject(c *fiber.Ctx) error {
 
 	return c.JSON(project)
 }
+
+// TODO: Add update route
+// TODO: Add delete route
