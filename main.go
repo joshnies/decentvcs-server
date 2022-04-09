@@ -32,8 +32,9 @@ func main() {
 
 	// Define v1 routes
 	v1 := app.Group("/v1")
-	routes.ProjectRoute(v1.Group("/projects"))
-	routes.BranchRoute(v1.Group("/branches"))
+	routes.RouteProjects(v1.Group("/projects"))
+	routes.RouteBranches(v1.Group("/branches"))
+	routes.RouteCommits(v1.Group("/commits"))
 
 	// Start server
 	app.Listen(":8000")

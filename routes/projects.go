@@ -5,7 +5,7 @@ import (
 	"github.com/joshnies/qc-api/controllers"
 )
 
-func ProjectRoute(router fiber.Router) {
+func RouteProjects(router fiber.Router) {
 	router.Get("/", controllers.GetManyProjects)
 	router.Get("/:id", controllers.GetOneProject)
 	router.Post("/", controllers.CreateProject)
