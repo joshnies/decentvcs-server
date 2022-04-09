@@ -3,7 +3,6 @@ package projects
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +10,7 @@ import (
 	"github.com/joshnies/qc-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Get many projects.
@@ -23,7 +23,9 @@ func GetManyProjects(c *fiber.Ctx) error {
 	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{})
 	if err != nil {
 		fmt.Println(err)
-		return c.Status(http.StatusInternalServerError).SendString("Internal server error")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
 	}
 
 	// Iterate over the results and decode into slice of Projects
@@ -33,7 +35,9 @@ func GetManyProjects(c *fiber.Ctx) error {
 		err := cur.Decode(&decodedProject)
 		if err != nil {
 			fmt.Println(err)
-			return c.Status(http.StatusInternalServerError).SendString("Internal server error")
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
 		}
 
 		result = append(result, decodedProject)
@@ -50,9 +54,16 @@ func GetOneProject(c *fiber.Ctx) error {
 	// Get project from database
 	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
 	if err != nil {
 		fmt.Println(err)
-		return c.Status(http.StatusInternalServerError).SendString("Internal server error")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
 	}
 
 	return c.JSON(result)
