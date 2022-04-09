@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/qc-api/config"
-	"github.com/joshnies/qc-api/routes/projects"
+	"github.com/joshnies/qc-api/routes"
 )
 
 func main() {
@@ -30,14 +30,9 @@ func main() {
 	// Use middleware
 	app.Use(logger.New())
 
-	// Define routes
-	// /v1
+	// Define v1 routes
 	v1 := app.Group("/v1")
-	// /v1/projects
-	v1Projects := v1.Group("/projects")
-	v1Projects.Get("/", projects.GetManyProjects)
-	v1Projects.Get("/:id", projects.GetOneProject)
-	v1Projects.Post("/", projects.CreateProject)
+	routes.ProjectRoute(v1.Group("/projects"))
 
 	// Start server
 	app.Listen(":8000")
