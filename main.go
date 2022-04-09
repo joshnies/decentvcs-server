@@ -33,10 +33,12 @@ func main() {
 	// Define v1 routes
 	v1 := app.Group("/v1")
 	routes.ProjectRoute(v1.Group("/projects"))
+	routes.BranchRoute(v1.Group("/branches"))
 
 	// Start server
 	app.Listen(":8000")
 
+	// After server stops:
 	// Close database connection
 	if err := config.MI.Client.Disconnect(context.TODO()); err != nil {
 		panic(err)

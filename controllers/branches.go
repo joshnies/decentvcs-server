@@ -13,14 +13,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Get many projects.
-func GetManyProjects(c *fiber.Ctx) error {
+// Get many branches.
+func GetManyBranches(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	var result []models.Project
+	var result []models.Branch
 	defer cancel()
 
-	// Get projects from database
-	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{})
+	// Get branches from database
+	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -28,11 +28,11 @@ func GetManyProjects(c *fiber.Ctx) error {
 		})
 	}
 
-	// Iterate over the results and decode into slice of Projects
+	// Iterate over the results and decode into slice of Branches
 	defer cur.Close(ctx)
 	for cur.Next(ctx) {
-		var decodedProject models.Project
-		err := cur.Decode(&decodedProject)
+		var decoded models.Branch
+		err := cur.Decode(&decoded)
 		if err != nil {
 			fmt.Println(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -40,22 +40,22 @@ func GetManyProjects(c *fiber.Ctx) error {
 			})
 		}
 
-		result = append(result, decodedProject)
+		result = append(result, decoded)
 	}
 
 	return c.JSON(result)
 }
 
-// Get one project.
-func GetOneProject(c *fiber.Ctx) error {
+// Get one branch.
+func GetOneBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result models.Project
+	var result models.Branch
 	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
 
-	// Get project from database
-	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	// Get branch from database
+	err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
@@ -71,13 +71,13 @@ func GetOneProject(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Create a new project.
-func CreateProject(c *fiber.Ctx) error {
+// Create a new branch.
+func CreateBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Parse body
-	var body models.Project
+	var body models.Branch
 	if err := c.BodyParser(&body); err != nil {
 		fmt.Println(err) // DEBUG
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -92,15 +92,16 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create new project
-	project := models.Project{
+	// Create new branch
+	branch := models.Branch{
 		Id:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Name:      body.Name,
+		ProjectId: body.ProjectId,
 	}
 
-	// Create project in database
-	_, err := config.MI.DB.Collection("projects").InsertOne(ctx, project)
+	// Create branch in database
+	_, err := config.MI.DB.Collection("branches").InsertOne(ctx, branch)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -108,7 +109,7 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(project)
+	return c.JSON(branch)
 }
 
 // TODO: Add update route
