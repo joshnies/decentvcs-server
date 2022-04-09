@@ -37,6 +37,7 @@ func main() {
 	v1Projects := v1.Group("/projects")
 	v1Projects.Get("/", projects.GetManyProjects)
 	v1Projects.Get("/:id", projects.GetOneProject)
+	v1Projects.Post("/", projects.CreateProject)
 
 	// Start server
 	app.Listen(":8000")

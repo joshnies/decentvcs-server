@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/models"
@@ -12,6 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+var validate = validator.New()
 
 // Get many projects.
 func GetManyProjects(c *fiber.Ctx) error {
@@ -48,11 +51,13 @@ func GetManyProjects(c *fiber.Ctx) error {
 
 // Get one project.
 func GetOneProject(c *fiber.Ctx) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var result models.Project
+	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
 
 	// Get project from database
-	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -67,4 +72,43 @@ func GetOneProject(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// Create a new project.
+func CreateProject(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Parse body
+	var body models.Project
+	if err := c.BodyParser(&body); err != nil {
+		fmt.Println(err) // DEBUG
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// Validate body
+	if vErr := validate.Struct(body); vErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": vErr.Error(),
+		})
+	}
+
+	// Create new project
+	project := models.Project{
+		Id:   primitive.NewObjectID(),
+		Name: body.Name,
+	}
+
+	// Create project in database
+	_, err := config.MI.DB.Collection("projects").InsertOne(ctx, project)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(project)
 }
