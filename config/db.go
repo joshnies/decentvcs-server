@@ -20,6 +20,8 @@ var MI MongoInstance
 
 // Initialize database client
 func InitDatabase() {
+	// TODO: Validate environment variables
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -31,7 +33,7 @@ func InitDatabase() {
 
 	db := client.Database(os.Getenv("DB_NAME"))
 
-	// Assign to global variable
+	// Assign global instance
 	MI = MongoInstance{
 		Client: client,
 		DB:     db,

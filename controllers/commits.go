@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/models"
@@ -86,9 +89,51 @@ func CreateCommit(c *fiber.Ctx) error {
 	}
 
 	// Validate body
-	if vErr := validate.Struct(body); vErr != nil {
+	if err := validate.Struct(body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": vErr.Error(),
+			"error": err.Error(),
+		})
+	}
+
+	// Get file
+	file, err := c.FormFile("file")
+	if err != nil {
+		fmt.Println(err) // DEBUG
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Missing or invalid file",
+		})
+	}
+
+	iofile, err := file.Open()
+	if err != nil {
+		fmt.Println(err) // DEBUG
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// TODO: Might have to read all contents of iofile into memory, then send as Body
+
+	// Upload file to Linode Object Storage
+	_, err = config.SI.Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Bucket: &config.SI.Bucket,
+		Key:    &file.Filename,
+		Body:   iofile,
+	})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
+			fmt.Println("Upload canceled due to timeout.")
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		fmt.Println("Upload failed.")
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
 		})
 	}
 
@@ -101,7 +146,7 @@ func CreateCommit(c *fiber.Ctx) error {
 	}
 
 	// Create commit in database
-	_, err := config.MI.DB.Collection("commits").InsertOne(ctx, commit)
+	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

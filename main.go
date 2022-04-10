@@ -20,8 +20,9 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Initialize database client
+	// Initialize services
 	config.InitDatabase()
+	config.InitStorage()
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
