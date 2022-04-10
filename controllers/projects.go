@@ -125,7 +125,16 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(project)
+	return c.JSON(fiber.Map{
+		"_id":        project.Id.Hex(),
+		"created_at": project.CreatedAt,
+		"name":       project.Name,
+		"default_branch": fiber.Map{
+			"_id":        branch.Id.Hex(),
+			"name":       branch.Name,
+			"created_at": branch.CreatedAt,
+		},
+	})
 }
 
 // TODO: Add update route
