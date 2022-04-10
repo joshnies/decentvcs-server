@@ -108,6 +108,23 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Create default branch
+	branch := models.Branch{
+		Id:        primitive.NewObjectID(),
+		CreatedAt: time.Now().Unix(),
+		Name:      "live",
+		ProjectId: project.Id,
+	}
+
+	// Insert branch into database
+	_, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	return c.JSON(project)
 }
 
