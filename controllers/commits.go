@@ -23,8 +23,29 @@ func GetManyCommits(c *fiber.Ctx) error {
 	var result []models.Commit
 	defer cancel()
 
+	// NOTE: Commented out since it's currently unused
+	// Get project ID
+	// projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"error":   "Bad request",
+	// 		"message": "Invalid project ID",
+	// 	})
+	// }
+
+	// Get branch ID
+	branchId, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid branch ID",
+		})
+	}
+
 	// Get commits from database
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{})
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"branch_id": branchId})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

@@ -19,8 +19,6 @@ func GetManyBranches(c *fiber.Ctx) error {
 	var result []models.Branch
 	defer cancel()
 
-	fmt.Println("GetManyBranches") // DEBUG
-
 	// Get project ID
 	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
 	if err != nil {
