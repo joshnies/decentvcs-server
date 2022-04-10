@@ -79,20 +79,22 @@ func CreateCommit(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Parse body
-	var body models.Commit
-	if err := c.BodyParser(&body); err != nil {
-		fmt.Println(err) // DEBUG
+	// Create ObjectID
+	branch_id, err := primitive.ObjectIDFromHex(c.FormValue("branch_id"))
+	if err != nil {
+		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Bad request",
+			"error":   "Bad request",
+			"message": "Invalid branch_id; must be an ObjectID hexadecimal",
 		})
 	}
 
-	// Validate body
-	if err := validate.Struct(body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	// Create commit object
+	commit := models.Commit{
+		Id:        primitive.NewObjectID(),
+		CreatedAt: time.Now().Unix(),
+		Message:   c.FormValue("message"),
+		BranchId:  branch_id,
 	}
 
 	// Get file
@@ -107,47 +109,40 @@ func CreateCommit(c *fiber.Ctx) error {
 
 	iofile, err := file.Open()
 	if err != nil {
-		fmt.Println(err) // DEBUG
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// TODO: Might have to read all contents of iofile into memory, then send as Body
-
-	// Upload file to Linode Object Storage
-	_, err = config.SI.Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Bucket: &config.SI.Bucket,
-		Key:    &file.Filename,
-		Body:   iofile,
-	})
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
-			fmt.Println("Upload canceled due to timeout.")
-			fmt.Println(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		fmt.Println("Upload failed.")
+		fmt.Println("Failed to read file while creating commit. Aborting.")
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
 
-	// Create new commit
-	commit := models.Commit{
-		Id:        primitive.NewObjectID(),
-		CreatedAt: time.Now().Unix(),
-		Message:   body.Message,
-		BranchId:  body.BranchId,
+	// Upload file to Linode Object Storage
+	_, err = config.SI.Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Bucket: &config.SI.Bucket,
+		Key:    &file.Filename, // TODO: Change to random ID
+		Body:   iofile,
+	})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
+			fmt.Println("Commit upload canceled due to timeout.")
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		fmt.Println("Commit upload failed.")
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
 	}
 
-	// Create commit in database
+	// Insert commit into database
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
+		// TODO: Attempt to delete file from storage
+		fmt.Println("Failed to insert commit into database. File was still uploaded.")
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
