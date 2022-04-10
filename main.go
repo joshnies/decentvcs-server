@@ -35,8 +35,8 @@ func main() {
 	// Define v1 routes
 	v1 := app.Group("/v1")
 	routes.RouteProjects(v1.Group("/projects"))
-	routes.RouteBranches(v1.Group("/branches"))
-	routes.RouteCommits(v1.Group("/commits"))
+	routes.RouteBranches(v1.Group("/projects/:pid/branches"))
+	routes.RouteCommits(v1.Group("/projects/:pid/branches/:bid/commits"))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.GetPort()))

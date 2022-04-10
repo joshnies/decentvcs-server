@@ -19,8 +19,20 @@ func GetManyBranches(c *fiber.Ctx) error {
 	var result []models.Branch
 	defer cancel()
 
+	fmt.Println("GetManyBranches") // DEBUG
+
+	// Get project ID
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
 	// Get branches from database
-	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{})
+	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{"project_id": projectId})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -52,7 +64,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	var result models.Branch
-	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
+	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
 
 	// Get branch from database
 	err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)

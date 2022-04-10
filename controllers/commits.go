@@ -56,7 +56,7 @@ func GetOneCommit(c *fiber.Ctx) error {
 	defer cancel()
 
 	var result models.Commit
-	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
+	objId, _ := primitive.ObjectIDFromHex(c.Params("cid"))
 
 	// Get commit from database
 	err := config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)

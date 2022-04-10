@@ -52,7 +52,7 @@ func GetOneProject(c *fiber.Ctx) error {
 	defer cancel()
 
 	var result models.Project
-	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
+	objId, _ := primitive.ObjectIDFromHex(c.Params("pid"))
 
 	// Get project from database
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
