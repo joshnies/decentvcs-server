@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/models"
+	"github.com/lucsky/cuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -79,7 +80,10 @@ func CreateCommit(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Create ObjectID
+	// Generate file key
+	fileKey := cuid.New()
+
+	// Create branch ObjectID
 	branch_id, err := primitive.ObjectIDFromHex(c.FormValue("branch_id"))
 	if err != nil {
 		fmt.Println(err)
@@ -95,6 +99,7 @@ func CreateCommit(c *fiber.Ctx) error {
 		CreatedAt: time.Now().Unix(),
 		Message:   c.FormValue("message"),
 		BranchId:  branch_id,
+		FileKey:   fileKey,
 	}
 
 	// Get file
@@ -107,6 +112,7 @@ func CreateCommit(c *fiber.Ctx) error {
 		})
 	}
 
+	// Open file
 	iofile, err := file.Open()
 	if err != nil {
 		fmt.Println("Failed to read file while creating commit. Aborting.")
@@ -119,7 +125,7 @@ func CreateCommit(c *fiber.Ctx) error {
 	// Upload file to Linode Object Storage
 	_, err = config.SI.Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: &config.SI.Bucket,
-		Key:    &file.Filename, // TODO: Change to random ID
+		Key:    &fileKey,
 		Body:   iofile,
 	})
 	if err != nil {
@@ -141,7 +147,17 @@ func CreateCommit(c *fiber.Ctx) error {
 	// Insert commit into database
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
-		// TODO: Attempt to delete file from storage
+		// Attempt to delete file from storage
+		_, err = config.SI.Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+			Bucket: &config.SI.Bucket,
+			Key:    &fileKey,
+		})
+		if err != nil {
+			fmt.Println("Failed to delete uploaded commit file from storage after a failed commit insert into database.")
+			fmt.Println(err)
+		}
+
+		// Log and return error
 		fmt.Println("Failed to insert commit into database. File was still uploaded.")
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
