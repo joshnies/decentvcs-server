@@ -150,11 +150,11 @@ func CreateProject(c *fiber.Ctx) error {
 		"_id":  project.ID.Hex(),
 		"name": project.Name,
 		"branches": []fiber.Map{
-			fiber.Map{
+			{
 				"_id":  branch.ID.Hex(),
 				"name": branch.Name,
 				"commits": []fiber.Map{
-					fiber.Map{
+					{
 						"_id":     commit.ID.Hex(),
 						"message": commit.Message,
 					},
