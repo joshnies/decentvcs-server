@@ -3,15 +3,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
 	"github.com/joshnies/qc-api/models"
-	"github.com/lucsky/cuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,29 +20,18 @@ func GetManyCommits(c *fiber.Ctx) error {
 	var result []models.Commit
 	defer cancel()
 
-	// NOTE: Commented out since it's currently unused
 	// Get project ID
-	// projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"error":   "Bad request",
-	// 		"message": "Invalid project ID",
-	// 	})
-	// }
-
-	// Get branch ID
-	branchId, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
-			"message": "Invalid branch ID",
+			"message": "Invalid project ID",
 		})
 	}
 
 	// Get commits from database
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"branch_id": branchId})
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": projectId})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -101,11 +87,20 @@ func CreateCommit(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Generate file key
-	fileKey := cuid.New()
+	// Get file URIs
+	fileURIs := strings.Split(c.FormValue("file_uris"), ",")
 
-	// Create branch ObjectID
-	branch_id, err := primitive.ObjectIDFromHex(c.FormValue("branch_id"))
+	if len(fileURIs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "At least one file URI is required",
+		})
+	}
+
+	// TODO: Validate file URIs
+
+	// Create project ObjectID
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -116,70 +111,17 @@ func CreateCommit(c *fiber.Ctx) error {
 
 	// Create commit object
 	commit := models.Commit{
-		Id:        primitive.NewObjectID(),
+		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Message:   c.FormValue("message"),
-		BranchId:  branch_id,
-		FileKey:   fileKey,
-	}
-
-	// Get file
-	file, err := c.FormFile("file")
-	if err != nil {
-		fmt.Println(err) // DEBUG
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Missing or invalid file",
-		})
-	}
-
-	// Open file
-	iofile, err := file.Open()
-	if err != nil {
-		fmt.Println("Failed to read file while creating commit. Aborting.")
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Upload file to Linode Object Storage
-	_, err = config.SI.Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Bucket: &config.SI.Bucket,
-		Key:    &fileKey,
-		Body:   iofile,
-	})
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
-			fmt.Println("Commit upload canceled due to timeout.")
-			fmt.Println(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		fmt.Println("Commit upload failed.")
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		ProjectID: projectId,
+		FileURIs:  fileURIs,
 	}
 
 	// Insert commit into database
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
-		// Attempt to delete file from storage
-		_, err = config.SI.Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
-			Bucket: &config.SI.Bucket,
-			Key:    &fileKey,
-		})
-		if err != nil {
-			fmt.Println("Failed to delete uploaded commit file from storage after a failed commit insert into database.")
-			fmt.Println(err)
-		}
-
-		// Log and return error
-		fmt.Println("Failed to insert commit into database. File was still uploaded.")
+		fmt.Println("Failed to insert commit into database.")
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

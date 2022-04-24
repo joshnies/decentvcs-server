@@ -94,7 +94,7 @@ func CreateProject(c *fiber.Ctx) error {
 
 	// Create new project
 	project := models.Project{
-		Id:        primitive.NewObjectID(),
+		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Name:      body.Name,
 	}
@@ -108,12 +108,33 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Create initial commit
+	commit := models.Commit{
+		ID:        primitive.NewObjectID(),
+		CreatedAt: time.Now().Unix(),
+		ProjectID: project.ID,
+		Message:   "Initial commit",
+		FileURIs:  []string{},
+	}
+
+	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
+	if err != nil {
+		// Delete project
+		config.MI.DB.Collection("projects").DeleteOne(ctx, bson.M{"_id": project.ID})
+
+		// Output error
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	// Create default branch
 	branch := models.Branch{
-		Id:        primitive.NewObjectID(),
+		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
-		Name:      "live",
-		ProjectId: project.Id,
+		Name:      "production",
+		CommitID:  commit.ID,
 	}
 
 	// Insert branch into database
@@ -126,13 +147,19 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"_id":        project.Id.Hex(),
-		"created_at": project.CreatedAt,
-		"name":       project.Name,
-		"default_branch": fiber.Map{
-			"_id":        branch.Id.Hex(),
-			"name":       branch.Name,
-			"created_at": branch.CreatedAt,
+		"_id":  project.ID.Hex(),
+		"name": project.Name,
+		"branches": []fiber.Map{
+			fiber.Map{
+				"_id":  branch.ID.Hex(),
+				"name": branch.Name,
+				"commits": []fiber.Map{
+					fiber.Map{
+						"_id":     commit.ID.Hex(),
+						"message": commit.Message,
+					},
+				},
+			},
 		},
 	})
 }

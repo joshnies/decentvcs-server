@@ -89,7 +89,6 @@ func CreateBranch(c *fiber.Ctx) error {
 	// Parse body
 	var body models.Branch
 	if err := c.BodyParser(&body); err != nil {
-		fmt.Println(err) // DEBUG
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
 		})
@@ -104,10 +103,10 @@ func CreateBranch(c *fiber.Ctx) error {
 
 	// Create new branch
 	branch := models.Branch{
-		Id:        primitive.NewObjectID(),
+		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Name:      body.Name,
-		ProjectId: body.ProjectId,
+		CommitID:  body.CommitID,
 	}
 
 	// Create branch in database
