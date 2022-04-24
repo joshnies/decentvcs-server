@@ -1,42 +1,36 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"storj.io/uplink"
 )
 
 type StorageInstance struct {
-	Client *s3.S3
+	Access *uplink.Access
 	Bucket string
 }
 
 var SI StorageInstance
 
 func InitStorage() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// TODO: Validate environment variables
 
-	// Initialize S3 client
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("STORAGE_REGION")),
-		Credentials: credentials.NewStaticCredentials(
-			os.Getenv("STORAGE_ACCESS_KEY"),
-			os.Getenv("STORAGE_SECRET_KEY"),
-			"",
-		),
-		Endpoint: aws.String(os.Getenv("STORAGE_ENDPOINT")),
-	}))
-	client := s3.New(sess)
-
-	// Assign global instance
-	SI = StorageInstance{
-		Client: client,
-		Bucket: os.Getenv("STORAGE_BUCKET"),
+	// Create access grant to Storj bucket
+	access, err := uplink.RequestAccessWithPassphrase(ctx, os.Getenv("STORJ_SATELLITE"), os.Getenv("STORJ_API_KEY"), os.Getenv("STORJ_API_PASSPHRASE"))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to authenticate with Storj: %s", err))
 	}
 
-	fmt.Println("Storage initialized ✅")
+	// Create global storage instance
+	SI = StorageInstance{
+		Access: access,
+		Bucket: os.Getenv("STORJ_BUCKET"),
+	}
 }

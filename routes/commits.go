@@ -7,6 +7,7 @@ import (
 
 func RouteCommits(router fiber.Router) {
 	router.Get("/", controllers.GetManyCommits)
-	router.Get("/:cid", controllers.GetOneCommit)
 	router.Post("/", controllers.CreateCommit)
+	router.Get("/:id", controllers.GetOneCommit)
+	router.Get("/:id", controllers.GetAccessGrant)
 }
