@@ -58,7 +58,7 @@ func GetOneProject(c *fiber.Ctx) error {
 	defer cancel()
 
 	var result models.Project
-	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
+	objId, _ := primitive.ObjectIDFromHex(c.Params("pid"))
 
 	// Get project from database
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
@@ -192,12 +192,19 @@ func GetAccessGrant(c *fiber.Ctx) error {
 
 	// Get project
 	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
-	pid := c.Params("id")
+	pid := c.Params("pid")
+	projectObjectId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid pid",
+		})
+	}
+
 	project := models.Project{}
-	err := config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": pid}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project not found",
 		})
 	}
 	if err != nil {
@@ -231,7 +238,7 @@ func GetAccessGrant(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"access": accessSerialized,
+		"access_grant": accessSerialized,
 	})
 }
 

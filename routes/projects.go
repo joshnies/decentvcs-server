@@ -8,6 +8,6 @@ import (
 func RouteProjects(router fiber.Router) {
 	router.Get("/", controllers.GetManyProjects)
 	router.Post("/", controllers.CreateProject)
-	router.Get("/:id", controllers.GetOneProject)
-	router.Get("/:id/access_grant", controllers.GetAccessGrant)
+	router.Get("/:pid", controllers.GetOneProject)
+	router.Get("/:pid/access_grant", controllers.GetAccessGrant)
 }
