@@ -9,5 +9,4 @@ func RouteCommits(router fiber.Router) {
 	router.Get("/", controllers.GetManyCommits)
 	router.Post("/", controllers.CreateCommit)
 	router.Get("/:id", controllers.GetOneCommit)
-	router.Get("/:id", controllers.GetAccessGrant)
 }

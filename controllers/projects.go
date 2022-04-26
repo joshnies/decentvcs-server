@@ -51,14 +51,14 @@ func GetManyProjects(c *fiber.Ctx) error {
 //
 // Query params:
 //
-// - pid: Project ID
+// - id: Project ID
 //
 func GetOneProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var result models.Project
-	objId, _ := primitive.ObjectIDFromHex(c.Params("pid"))
+	objId, _ := primitive.ObjectIDFromHex(c.Params("id"))
 
 	// Get project from database
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
@@ -179,7 +179,7 @@ func CreateProject(c *fiber.Ctx) error {
 //
 // Query params:
 //
-// - pid: Project ID
+// - id: Project ID
 //
 func GetAccessGrant(c *fiber.Ctx) error {
 	// Get params
@@ -192,7 +192,7 @@ func GetAccessGrant(c *fiber.Ctx) error {
 
 	// Get project
 	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
-	pid := c.Params("pid")
+	pid := c.Params("id")
 	project := models.Project{}
 	err := config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": pid}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
