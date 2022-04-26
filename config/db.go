@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -31,13 +30,14 @@ func InitDatabase() {
 		log.Fatal(err)
 	}
 
-	db := client.Database(os.Getenv("DB_NAME"))
+	// err = client.Ping(ctx, nil)
+	// if err != nil {
+	// 	log.Fatal("Failed to connect to database: ", err)
+	// }
 
 	// Assign global instance
 	MI = MongoInstance{
 		Client: client,
-		DB:     db,
+		DB:     client.Database(os.Getenv("DB_NAME")),
 	}
-
-	fmt.Println("Database connected ✅")
 }

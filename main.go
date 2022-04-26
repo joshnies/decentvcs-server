@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -13,14 +14,17 @@ import (
 )
 
 func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Load environment variables
 	err := godotenv.Load()
-
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Initialize services
+	// Initialize stuff
+	config.InitConfig()
 	config.InitDatabase()
 	config.InitStorage()
 
@@ -39,11 +43,11 @@ func main() {
 	routes.RouteBranches(v1.Group("/projects/:pid/branches"))
 
 	// Start server
-	app.Listen(fmt.Sprintf(":%s", config.GetPort()))
+	app.Listen(fmt.Sprintf(":%s", config.I.Port))
 
 	// After server stops:
 	// Close database connection
-	if err := config.MI.Client.Disconnect(context.TODO()); err != nil {
+	if err := config.MI.Client.Disconnect(ctx); err != nil {
 		panic(err)
 	}
 }
