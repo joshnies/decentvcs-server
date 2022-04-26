@@ -12,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"storj.io/uplink"
 )
 
 // Get many commits.
@@ -130,77 +129,6 @@ func CreateCommit(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(commit)
-}
-
-// Get presigned URLs to upload objects to storage from a client.
-func GetAccessGrant(c *fiber.Ctx) error {
-	// Get params
-	permission := uplink.ReadOnlyPermission()
-	if c.Params("permission") == "w" {
-		permission = uplink.WriteOnlyPermission()
-	}
-
-	// TODO: Return unauthorized if user is not logged in
-
-	// Get commit
-	commitId, _ := primitive.ObjectIDFromHex(c.Params("id"))
-	commit := models.Commit{}
-	err := config.MI.DB.Collection("commits").FindOne(context.Background(), bson.M{"_id": commitId}).Decode(&commit)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Get project
-	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": commit.ProjectID}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// TODO: Return unauthorized if user is not authorized to access project
-
-	// Create uplink access grant
-	access, err := config.SI.Access.Share(permission, uplink.SharePrefix{
-		Bucket: config.SI.Bucket,
-		Prefix: fmt.Sprintf("%s/%s", commit.ProjectID, commit.ID),
-	})
-
-	if err != nil {
-		println(fmt.Sprintf("Failed to create access grant to Storj bucket %s: %s", config.SI.Bucket, err))
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Serialize restricted access grant so it can be used later with `ParseAccess()` (or equiv.)
-	// by the client
-	accessSerialized, err := access.Serialize()
-	if err != nil {
-		println(fmt.Sprintf("Failed to serialize access grant to Storj bucket %s: %s", config.SI.Bucket, err))
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"access": accessSerialized,
-	})
 }
 
 // TODO: Add update route

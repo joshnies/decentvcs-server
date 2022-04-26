@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"storj.io/uplink"
 )
 
 // Get many projects.
@@ -47,6 +48,11 @@ func GetManyProjects(c *fiber.Ctx) error {
 }
 
 // Get one project.
+//
+// Query params:
+//
+// - pid: Project ID
+//
 func GetOneProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -72,6 +78,11 @@ func GetOneProject(c *fiber.Ctx) error {
 }
 
 // Create a new project.
+//
+// Body:
+//
+// - name: Project name
+//
 func CreateProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -161,6 +172,66 @@ func CreateProject(c *fiber.Ctx) error {
 				},
 			},
 		},
+	})
+}
+
+// Get Storj access grant for project.
+//
+// Query params:
+//
+// - pid: Project ID
+//
+func GetAccessGrant(c *fiber.Ctx) error {
+	// Get params
+	permission := uplink.ReadOnlyPermission()
+	if c.Params("permission") == "w" {
+		permission = uplink.WriteOnlyPermission()
+	}
+
+	// TODO: Return unauthorized if user is not logged in
+
+	// Get project
+	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
+	pid := c.Params("pid")
+	project := models.Project{}
+	err := config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": pid}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Create uplink access grant
+	access, err := config.SI.Access.Share(permission, uplink.SharePrefix{
+		Bucket: config.SI.Bucket,
+		Prefix: pid,
+	})
+
+	if err != nil {
+		println(fmt.Sprintf("Failed to create access grant to Storj bucket %s: %s", config.SI.Bucket, err))
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Serialize restricted access grant so it can be used later with `ParseAccess()` (or equiv.)
+	// by the client
+	accessSerialized, err := access.Serialize()
+	if err != nil {
+		println(fmt.Sprintf("Failed to serialize access grant to Storj bucket %s: %s", config.SI.Bucket, err))
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"access": accessSerialized,
 	})
 }
 
