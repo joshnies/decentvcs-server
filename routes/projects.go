@@ -9,5 +9,5 @@ func RouteProjects(router fiber.Router) {
 	router.Get("/", controllers.GetManyProjects)
 	router.Post("/", controllers.CreateProject)
 	router.Get("/:id", controllers.GetOneProject)
-	router.Get("/:id", controllers.GetAccessGrant)
+	router.Get("/:id/access_grant", controllers.GetAccessGrant)
 }
