@@ -125,7 +125,6 @@ func CreateProject(c *fiber.Ctx) error {
 		CreatedAt: time.Now().Unix(),
 		ProjectID: project.ID,
 		Message:   "Initial commit",
-		FileURIs:  []string{},
 	}
 
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
