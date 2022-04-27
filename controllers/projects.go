@@ -177,17 +177,11 @@ func CreateProject(c *fiber.Ctx) error {
 
 // Get Storj access grant for project.
 //
-// Query params:
+// URL params:
 //
 // - id: Project ID
 //
 func GetAccessGrant(c *fiber.Ctx) error {
-	// Get params
-	permission := uplink.ReadOnlyPermission()
-	if c.Params("permission") == "w" {
-		permission = uplink.WriteOnlyPermission()
-	}
-
 	// TODO: Return unauthorized if user is not logged in
 
 	// Get project
@@ -215,7 +209,7 @@ func GetAccessGrant(c *fiber.Ctx) error {
 	}
 
 	// Create uplink access grant
-	access, err := config.SI.Access.Share(permission, uplink.SharePrefix{
+	access, err := config.SI.Access.Share(uplink.FullPermission(), uplink.SharePrefix{
 		Bucket: config.SI.Bucket,
 		Prefix: pid,
 	})
