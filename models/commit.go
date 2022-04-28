@@ -9,5 +9,7 @@ type Commit struct {
 	Message       string             `json:"message,omitempty" bson:"message,omitempty"`
 	SnapshotPaths []string           `json:"snapshot_paths,omitempty" bson:"snapshot_paths,omitempty"`
 	PatchPaths    []string           `json:"patch_paths,omitempty" bson:"patch_paths,omitempty"`
-	// TODO: Add user_id
+	DeletedPaths  []string           `json:"deleted_paths,omitempty" bson:"deleted_paths,omitempty"`
+	HashMap       map[string]string  `json:"hash_map,omitempty" bson:"hash_map,omitempty"`
+	// TODO: Add user ID
 }
