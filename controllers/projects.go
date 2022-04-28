@@ -119,11 +119,14 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Generate default branch ID ahead of time
+	branchId := primitive.NewObjectID()
+
 	// Create initial commit
 	commit := models.Commit{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
-		ProjectID: project.ID,
+		BranchID:  branchId,
 		Message:   "Initial commit",
 	}
 
@@ -141,7 +144,7 @@ func CreateProject(c *fiber.Ctx) error {
 
 	// Create default branch
 	branch := models.Branch{
-		ID:        primitive.NewObjectID(),
+		ID:        branchId,
 		CreatedAt: time.Now().Unix(),
 		Name:      "production",
 		CommitID:  commit.ID,

@@ -88,8 +88,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Parse request body
-	var commit models.Commit
-	if err := c.BodyParser(&commit); err != nil {
+	var reqBody models.CommitSerialized
+	if err := c.BodyParser(&reqBody); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -97,27 +97,94 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		})
 	}
 
+	// Make sure a branch ID was specified
+	if reqBody.BranchID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "branch_id is required",
+		})
+	}
+
 	// TODO: Validate file paths
 
 	// Create project ObjectID
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	branchId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
-			"message": "Invalid project ID; must be an ObjectID hexadecimal",
+			"message": "Invalid branch_id; must be an ObjectID hexadecimal",
 		})
 	}
 
-	// Assign remaining data
-	commit.ID = primitive.NewObjectID()
-	commit.CreatedAt = time.Now().Unix()
-	commit.ProjectID = projectId
+	// Get branch with commit
+	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
+		{
+			"$match": bson.M{
+				"_id": branchId,
+			},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "commits",
+				"localField":   "commit_id",
+				"foreignField": "_id",
+				"as":           "commit",
+			},
+		},
+		{
+			"$unwind": "$commit",
+		},
+		{
+			"$unset": "commit_id",
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	defer cur.Close(ctx)
+
+	// Iterate over the results and decode into slice of Branches
+	cur.Next(ctx)
+	var branchWithPreviousCommit models.BranchWithCommit
+	err = cur.Decode(&branchWithPreviousCommit)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Create commit object
+	commit := models.Commit{
+		ID:               primitive.NewObjectID(),
+		CreatedAt:        time.Now().Unix(),
+		PreviousCommitID: branchWithPreviousCommit.Commit.ID,
+		BranchID:         branchId,
+		Message:          reqBody.Message,
+		SnapshotPaths:    reqBody.SnapshotPaths,
+		PatchPaths:       reqBody.PatchPaths,
+		DeletedPaths:     reqBody.DeletedPaths,
+		HashMap:          reqBody.HashMap,
+	}
 
 	// Insert commit into database
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
 		fmt.Println("Failed to insert commit into database.")
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Update branch to point to new commit
+	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branchId}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
+	if err != nil {
+		fmt.Println("Failed to update branch.")
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

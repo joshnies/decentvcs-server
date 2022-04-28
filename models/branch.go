@@ -10,13 +10,6 @@ type Branch struct {
 	// TODO: Add user_id
 }
 
-type BranchWithCommitRes struct {
-	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
-	Name      string             `json:"name" bson:"name"`
-	Commit    []Commit           `json:"commit" bson:"commit"`
-}
-
 type BranchWithCommit struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	CreatedAt int64              `json:"created_at" bson:"created_at"`

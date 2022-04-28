@@ -100,7 +100,7 @@ func GetOneBranchWithCommit(c *fiber.Ctx) error {
 	// Get query params
 	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
 
-	// Get branch from database
+	// Get branch from database, including commit it currently points to
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -115,6 +115,12 @@ func GetOneBranchWithCommit(c *fiber.Ctx) error {
 				"as":           "commit",
 			},
 		},
+		{
+			"$unwind": "$commit",
+		},
+		{
+			"$unset": "commit_id",
+		},
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -126,19 +132,13 @@ func GetOneBranchWithCommit(c *fiber.Ctx) error {
 
 	// Iterate over the results and decode into slice of Branches
 	cur.Next(ctx)
-	var decoded models.BranchWithCommitRes
-	err = cur.Decode(&decoded)
+	var res models.BranchWithCommit
+	err = cur.Decode(&res)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
-	}
-
-	res := models.BranchWithCommit{
-		ID:     decoded.ID,
-		Name:   decoded.Name,
-		Commit: decoded.Commit[0],
 	}
 
 	return c.JSON(res)
