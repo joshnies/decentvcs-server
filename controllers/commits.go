@@ -61,10 +61,11 @@ func GetOneCommit(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result models.Commit
+	// Get query params
 	objId, _ := primitive.ObjectIDFromHex(c.Params("cid"))
 
 	// Get commit from database
+	var result models.Commit
 	err := config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

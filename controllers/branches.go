@@ -57,14 +57,20 @@ func GetManyBranches(c *fiber.Ctx) error {
 }
 
 // Get one branch.
+//
+// URL params:
+//
+// - bid: Branch ID
+//
 func GetOneBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result models.Branch
+	// Get query params
 	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
 
 	// Get branch from database
+	var result models.Branch
 	err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -81,7 +87,74 @@ func GetOneBranch(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// Get one branch with commit it currently points to.
+//
+// URL params:
+//
+// - bid: Branch ID
+//
+func GetOneBranchWithCommit(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get query params
+	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
+
+	// Get branch from database
+	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
+		{
+			"$match": bson.M{
+				"_id": objId,
+			},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "commits",
+				"localField":   "commit_id",
+				"foreignField": "_id",
+				"as":           "commit",
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	defer cur.Close(ctx)
+
+	// Iterate over the results and decode into slice of Branches
+	cur.Next(ctx)
+	var decoded models.BranchWithCommitRes
+	err = cur.Decode(&decoded)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	res := models.BranchWithCommit{
+		ID:     decoded.ID,
+		Name:   decoded.Name,
+		Commit: decoded.Commit[0],
+	}
+
+	return c.JSON(res)
+}
+
 // Create a new branch.
+//
+// URL params:
+//
+// - pid: Project ID
+//
+// Request body:
+//
+// - name: Branch name
+// - commit_id: Commit ID this branch points to
+//
 func CreateBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -8,5 +8,6 @@ import (
 func RouteBranches(router fiber.Router) {
 	router.Get("/", controllers.GetManyBranches)
 	router.Get("/:bid", controllers.GetOneBranch)
+	router.Get("/:bid/commit", controllers.GetOneBranchWithCommit)
 	router.Post("/", controllers.CreateBranch)
 }
