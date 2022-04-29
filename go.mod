@@ -7,6 +7,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.31.0
 	github.com/joho/godotenv v1.4.0
 	go.mongodb.org/mongo-driver v1.9.0
+	storj.io/uplink v1.8.2
 )
 
 require (
@@ -37,5 +38,4 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	storj.io/common v0.0.0-20220405183405-ffdc3ab808c6 // indirect
 	storj.io/drpc v0.0.30 // indirect
-	storj.io/uplink v1.8.2 // indirect
 )
