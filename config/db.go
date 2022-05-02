@@ -25,7 +25,7 @@ func InitDatabase() {
 	defer cancel()
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("DB_URI")))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGO_URI")))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,6 +38,6 @@ func InitDatabase() {
 	// Assign global instance
 	MI = MongoInstance{
 		Client: client,
-		DB:     client.Database(os.Getenv("DB_NAME")),
+		DB:     client.Database(os.Getenv("MONGO_DB")),
 	}
 }
