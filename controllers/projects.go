@@ -178,6 +178,66 @@ func CreateProject(c *fiber.Ctx) error {
 	})
 }
 
+// Update a project.
+//
+// URL params:
+// - pid: Project ID
+//
+func UpdateOneProject(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// TODO: Make sure user is project owner
+
+	// Parse body
+	var body models.Project
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// Get project
+	projectObjectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	updateData := bson.M{}
+	if body.Name != "" {
+		updateData["name"] = body.Name
+	}
+	if body.AccessGrant != "" {
+		updateData["access_grant"] = body.AccessGrant
+	}
+	if body.AccessGrantExpiration != 0 {
+		updateData["access_grant_expiration"] = body.AccessGrantExpiration
+	}
+
+	// Update project
+	_, err = config.MI.DB.Collection("projects").UpdateOne(
+		ctx,
+		bson.M{"_id": projectObjectId},
+		bson.M{"$set": updateData},
+	)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"_id":                     projectObjectId.Hex(),
+		"name":                    body.Name,
+		"access_grant":            body.AccessGrant,
+		"access_grant_expiration": body.AccessGrantExpiration,
+	})
+}
+
 // Get Storj access grant for project.
 //
 // URL params:
@@ -238,8 +298,6 @@ func GetAccessGrant(c *fiber.Ctx) error {
 		"access_grant": accessSerialized,
 	})
 }
-
-// TODO: Add update route
 
 // Delete project and all of its subresources.
 func DeleteOneProject(c *fiber.Ctx) error {
