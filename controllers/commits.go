@@ -108,6 +108,16 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	// TODO: Validate file paths
 
 	// Create project ObjectID
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID; must be an ObjectID hexadecimal",
+		})
+	}
+
+	// Create branch ObjectID
 	branchId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
 	if err != nil {
 		fmt.Println(err)
@@ -163,6 +173,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		ID:               primitive.NewObjectID(),
 		CreatedAt:        time.Now().Unix(),
 		PreviousCommitID: branchWithPreviousCommit.Commit.ID,
+		ProjectID:        projectId,
 		BranchID:         branchId,
 		Message:          reqBody.Message,
 		SnapshotPaths:    reqBody.SnapshotPaths,

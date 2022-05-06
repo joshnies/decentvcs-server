@@ -126,6 +126,7 @@ func CreateProject(c *fiber.Ctx) error {
 	commit := models.Commit{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
+		ProjectID: project.ID,
 		BranchID:  branchId,
 		Message:   "Initial commit",
 	}
@@ -239,4 +240,63 @@ func GetAccessGrant(c *fiber.Ctx) error {
 }
 
 // TODO: Add update route
-// TODO: Add delete route
+
+// Delete project and all of its subresources.
+func DeleteProject(c *fiber.Ctx) error {
+	// TODO: Return unauthorized if user is not logged in
+
+	// Get project
+	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
+	pid := c.Params("pid")
+	projectObjectId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid pid",
+		})
+	}
+
+	project := models.Project{}
+	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": projectObjectId}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Delete all commits for project
+	_, err = config.MI.DB.Collection("commits").DeleteMany(context.Background(), bson.M{"project_id": project.ID})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Delete all branches for project
+	_, err = config.MI.DB.Collection("branches").DeleteMany(context.Background(), bson.M{"project_id": project.ID})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Delete project
+	_, err = config.MI.DB.Collection("projects").DeleteOne(context.Background(), bson.M{"_id": projectObjectId})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Project deleted",
+	})
+}
