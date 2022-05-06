@@ -242,7 +242,7 @@ func GetAccessGrant(c *fiber.Ctx) error {
 // TODO: Add update route
 
 // Delete project and all of its subresources.
-func DeleteProject(c *fiber.Ctx) error {
+func DeleteOneProject(c *fiber.Ctx) error {
 	// TODO: Return unauthorized if user is not logged in
 
 	// Get project
