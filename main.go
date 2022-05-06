@@ -6,10 +6,12 @@ import (
 	"log"
 	"time"
 
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/qc-api/config"
+	"github.com/joshnies/qc-api/middleware"
 	"github.com/joshnies/qc-api/routes"
 )
 
@@ -34,7 +36,11 @@ func main() {
 	})
 
 	// Use middleware
-	app.Use(logger.New())
+	app.Use(adaptor.HTTPMiddleware(middleware.EnsureValidToken()))
+
+	if config.I.Debug {
+		app.Use(logger.New())
+	}
 
 	// Define v1 routes
 	v1 := app.Group("/v1")
