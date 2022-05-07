@@ -3,7 +3,9 @@ module github.com/joshnies/qc-api
 go 1.18
 
 require (
+	github.com/auth0/go-jwt-middleware/v2 v2.0.1
 	github.com/go-playground/validator/v10 v10.10.1
+	github.com/gofiber/adaptor/v2 v2.1.23
 	github.com/gofiber/fiber/v2 v2.33.0
 	github.com/joho/godotenv v1.4.0
 	go.mongodb.org/mongo-driver v1.9.0
@@ -12,21 +14,17 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/auth0/go-jwt-middleware/v2 v2.0.1 // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/gofiber/adaptor/v2 v2.1.23 // indirect
 	github.com/gofiber/utils v0.1.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/klauspost/compress v1.15.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spacemonkeygo/monkit/v3 v3.0.17 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.36.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
