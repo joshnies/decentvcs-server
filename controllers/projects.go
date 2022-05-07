@@ -167,11 +167,9 @@ func CreateProject(c *fiber.Ctx) error {
 			{
 				"_id":  branch.ID.Hex(),
 				"name": branch.Name,
-				"commits": []fiber.Map{
-					{
-						"_id":     commit.ID.Hex(),
-						"message": commit.Message,
-					},
+				"commit": fiber.Map{
+					"_id":     commit.ID.Hex(),
+					"message": commit.Message,
 				},
 			},
 		},
