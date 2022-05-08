@@ -16,7 +16,6 @@ import (
 // Get many commits.
 func GetManyCommits(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	var result []models.Commit
 	defer cancel()
 
 	// Get project ID
@@ -29,17 +28,63 @@ func GetManyCommits(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get branch ID
+	branchId, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid branch ID",
+		})
+	}
+
+	// If "after" query param set, get it from database
+	var afterCommit models.Commit
+	afterCommitIdStr := c.Query("after")
+	if afterCommitIdStr != "" {
+		afterCommitId, err := primitive.ObjectIDFromHex(afterCommitIdStr)
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "Invalid commit ID; must be an ObjectID hexadecimal",
+			})
+		}
+
+		// Get "after" commit from database
+		err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{
+			"_id":        afterCommitId,
+			"project_id": projectId,
+			"branch_id":  branchId,
+		}).Decode(&afterCommit)
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "No commit found for \"after\" query param",
+			})
+		}
+	}
+
 	// Get commits from database
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": projectId})
+	filter := bson.M{"project_id": projectId}
+
+	if afterCommitIdStr != "" {
+		filter["created_at"] = bson.M{
+			"$gt": afterCommit.CreatedAt,
+		}
+	}
+
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
+	defer cur.Close(ctx)
 
 	// Iterate over the results and decode into slice of Commits
-	defer cur.Close(ctx)
+	var result []models.Commit
 	for cur.Next(ctx) {
 		var decoded models.Commit
 		err := cur.Decode(&decoded)
