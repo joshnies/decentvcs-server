@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.0.1
+	github.com/go-jose/go-jose v2.5.1+incompatible
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/gofiber/adaptor/v2 v2.1.23
 	github.com/gofiber/fiber/v2 v2.33.0
@@ -15,8 +16,6 @@ require (
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
-	github.com/go-jose/go-jose v2.5.1+incompatible // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
