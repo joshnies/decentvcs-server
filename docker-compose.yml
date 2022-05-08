@@ -1,5 +1,4 @@
 services:
-
   db:
     image: mongo
     restart: always
