@@ -1,10 +1,15 @@
 package config
 
-import "os"
+import (
+	"log"
+	"net/url"
+	"os"
+)
 
 type Auth0Config struct {
-	Domain   string
-	Audience string
+	Domain    string
+	Audience  string
+	IssuerURL *url.URL
 }
 
 type Config struct {
@@ -37,12 +42,18 @@ func InitConfig() {
 		panic("AUTH0_AUDIENCE environment variable not set")
 	}
 
+	auth0IssuerURL, err := url.Parse("https://" + auth0Domain + "/")
+	if err != nil {
+		log.Fatalf("Failed to parse Auth0 issuer URL: %v", err)
+	}
+
 	I = Config{
 		Debug: os.Getenv("DEBUG") == "1",
 		Port:  getPort(),
 		Auth0: Auth0Config{
-			Domain:   auth0Domain,
-			Audience: auth0Audience,
+			Domain:    auth0Domain,
+			Audience:  auth0Audience,
+			IssuerURL: auth0IssuerURL,
 		},
 	}
 }

@@ -89,7 +89,12 @@ func CreateProject(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get user from context
-	sub := auth.GetUserSub(c)
+	sub, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
 
 	// Parse body
 	var body models.Project
@@ -116,7 +121,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Create project in database
-	_, err := config.MI.DB.Collection("projects").InsertOne(ctx, project)
+	_, err = config.MI.DB.Collection("projects").InsertOne(ctx, project)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

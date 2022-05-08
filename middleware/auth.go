@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
@@ -24,17 +23,12 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 
 // Middleware that checks for JWT validity
 func EnsureValidToken() func(next http.Handler) http.Handler {
-	issuerURL, err := url.Parse("https://" + config.I.Auth0.Domain + "/")
-	if err != nil {
-		log.Fatalf("Failed to parse Auth0 issuer URL: %v", err)
-	}
-
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
+	provider := jwks.NewCachingProvider(config.I.Auth0.IssuerURL, 5*time.Minute)
 
 	jwtValidator, err := validator.New(
 		provider.KeyFunc,
 		validator.RS256,
-		issuerURL.String(),
+		config.I.Auth0.IssuerURL.String(),
 		[]string{config.I.Auth0.Audience},
 		validator.WithCustomClaims(
 			func() validator.CustomClaims {
