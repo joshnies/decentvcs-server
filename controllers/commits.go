@@ -66,7 +66,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 	}
 
 	// Get commits from database
-	filter := bson.M{"project_id": projectId}
+	filter := bson.M{"project_id": projectId, "branch_id": branchId}
 
 	if afterCommitIdStr != "" {
 		filter["created_at"] = bson.M{
