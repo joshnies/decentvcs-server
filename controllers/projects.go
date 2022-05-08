@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
+	"github.com/joshnies/qc-api/lib/auth"
 	"github.com/joshnies/qc-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -87,6 +88,9 @@ func CreateProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Get user from context
+	sub := auth.GetUserSub(c)
+
 	// Parse body
 	var body models.Project
 	if err := c.BodyParser(&body); err != nil {
@@ -107,6 +111,7 @@ func CreateProject(c *fiber.Ctx) error {
 	project := models.Project{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
+		OwnerID:   sub,
 		Name:      body.Name,
 	}
 
