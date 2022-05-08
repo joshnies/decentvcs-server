@@ -224,7 +224,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		SnapshotPaths:    reqBody.SnapshotPaths,
 		PatchPaths:       reqBody.PatchPaths,
 		DeletedPaths:     reqBody.DeletedPaths,
-		HashMap:          reqBody.HashMap,
+		State:            reqBody.State,
 	}
 
 	// Insert commit into database
