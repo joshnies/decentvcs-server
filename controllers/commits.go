@@ -213,34 +213,18 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generate new ID for commit
-	id := primitive.NewObjectID()
-
-	// Use ID for hosted commit for empty values in state
-	newStateMap := make(map[string]models.CommitState)
-	for key, state := range reqBody.State {
-		newStateMap[key] = state
-
-		if state.HostCommitId == "" {
-			newStateMap[key] = models.CommitState{
-				Hash:         state.Hash,
-				HostCommitId: id.Hex(),
-			}
-		}
-	}
-
 	// Create commit object
 	commit := models.Commit{
-		ID:               id,
+		ID:               primitive.NewObjectID(),
 		CreatedAt:        time.Now().Unix(),
 		PreviousCommitID: branchWithPreviousCommit.Commit.ID,
 		ProjectID:        projectId,
 		BranchID:         branchId,
 		Message:          reqBody.Message,
-		SnapshotPaths:    reqBody.SnapshotPaths,
-		PatchPaths:       reqBody.PatchPaths,
-		DeletedPaths:     reqBody.DeletedPaths,
-		State:            newStateMap,
+		CreatedFiles:     reqBody.CreatedFiles,
+		ModifiedFiles:    reqBody.ModifiedFiles,
+		DeletedFiles:     reqBody.DeletedFiles,
+		HashMap:          reqBody.HashMap,
 	}
 
 	// Insert commit into database
