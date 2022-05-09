@@ -158,7 +158,7 @@ func CreateProject(c *fiber.Ctx) error {
 	branch := models.Branch{
 		ID:        branchId,
 		CreatedAt: time.Now().Unix(),
-		Name:      "production",
+		Name:      "stable",
 		CommitID:  commit.ID,
 	}
 
@@ -179,8 +179,8 @@ func CreateProject(c *fiber.Ctx) error {
 				"_id":  branch.ID.Hex(),
 				"name": branch.Name,
 				"commit": fiber.Map{
-					"_id":     commit.ID.Hex(),
-					"message": commit.Message,
+					"_id":   commit.ID.Hex(),
+					"index": commit.Index,
 				},
 			},
 		},
