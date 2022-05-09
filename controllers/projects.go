@@ -136,7 +136,7 @@ func CreateProject(c *fiber.Ctx) error {
 	commit := models.Commit{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
-		Index:     0,
+		Index:     1, // Starts at 1 since in Go, 0 is the default and used to check for empty values
 		ProjectID: project.ID,
 		BranchID:  branchId,
 		Message:   "Initial commit",
