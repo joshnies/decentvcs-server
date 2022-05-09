@@ -204,8 +204,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 
 	// Iterate over the results and decode into slice of Branches
 	cur.Next(ctx)
-	var branchWithPreviousCommit models.BranchWithCommit
-	err = cur.Decode(&branchWithPreviousCommit)
+	var branchWithLastCommit models.BranchWithCommit
+	err = cur.Decode(&branchWithLastCommit)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -215,16 +215,17 @@ func CreateOneCommit(c *fiber.Ctx) error {
 
 	// Create commit object
 	commit := models.Commit{
-		ID:               primitive.NewObjectID(),
-		CreatedAt:        time.Now().Unix(),
-		PreviousCommitID: branchWithPreviousCommit.Commit.ID,
-		ProjectID:        projectId,
-		BranchID:         branchId,
-		Message:          reqBody.Message,
-		CreatedFiles:     reqBody.CreatedFiles,
-		ModifiedFiles:    reqBody.ModifiedFiles,
-		DeletedFiles:     reqBody.DeletedFiles,
-		HashMap:          reqBody.HashMap,
+		ID:            primitive.NewObjectID(),
+		CreatedAt:     time.Now().Unix(),
+		Index:         branchWithLastCommit.Commit.Index + 1,
+		LastCommitID:  branchWithLastCommit.Commit.ID,
+		ProjectID:     projectId,
+		BranchID:      branchId,
+		Message:       reqBody.Message,
+		CreatedFiles:  reqBody.CreatedFiles,
+		ModifiedFiles: reqBody.ModifiedFiles,
+		DeletedFiles:  reqBody.DeletedFiles,
+		HashMap:       reqBody.HashMap,
 	}
 
 	// Insert commit into database

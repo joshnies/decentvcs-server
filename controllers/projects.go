@@ -136,6 +136,7 @@ func CreateProject(c *fiber.Ctx) error {
 	commit := models.Commit{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
+		Index:     0,
 		ProjectID: project.ID,
 		BranchID:  branchId,
 		Message:   "Initial commit",
