@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -102,8 +103,50 @@ func GetManyCommits(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Get one commit.
-func GetOneCommit(c *fiber.Ctx) error {
+// Get one commit by index.
+func GetOneCommitByIndex(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get query params
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	idx, err := strconv.Atoi(c.Params("idx"))
+	if err != nil || idx <= 0 {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid commit index. Must be a positive integer",
+		})
+	}
+
+	// Get commit from database
+	var result models.Commit
+	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": idx}).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(result)
+}
+
+// Get one commit by ID.
+func GetOneCommitByID(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -227,7 +270,6 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		ID:            primitive.NewObjectID(),
 		CreatedAt:     time.Now().Unix(),
 		Index:         branchWithLastCommit.Commit.Index + 1,
-		LastCommitID:  branchWithLastCommit.Commit.ID,
 		ProjectID:     projectId,
 		BranchID:      branchId,
 		Message:       reqBody.Message,
