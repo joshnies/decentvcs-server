@@ -220,10 +220,10 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		updateData["name"] = body.Name
 	}
 	if body.StorjAccessGrant != "" {
-		updateData["access_grant"] = body.StorjAccessGrant
+		updateData["storj_access_grant"] = body.StorjAccessGrant
 	}
 	if body.StorjAccessGrantExpiresAt != 0 {
-		updateData["access_grant_expiration"] = body.StorjAccessGrantExpiresAt
+		updateData["storj_access_grant_expires_at"] = body.StorjAccessGrantExpiresAt
 	}
 
 	// Update project
