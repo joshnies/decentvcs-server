@@ -219,11 +219,11 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	if body.Name != "" {
 		updateData["name"] = body.Name
 	}
-	if body.AccessGrant != "" {
-		updateData["access_grant"] = body.AccessGrant
+	if body.StorjAccessGrant != "" {
+		updateData["access_grant"] = body.StorjAccessGrant
 	}
-	if body.AccessGrantExpiration != 0 {
-		updateData["access_grant_expiration"] = body.AccessGrantExpiration
+	if body.StorjAccessGrantExpiresAt != 0 {
+		updateData["access_grant_expiration"] = body.StorjAccessGrantExpiresAt
 	}
 
 	// Update project
@@ -240,10 +240,10 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"_id":                     projectObjectId.Hex(),
-		"name":                    body.Name,
-		"access_grant":            body.AccessGrant,
-		"access_grant_expiration": body.AccessGrantExpiration,
+		"_id":                           projectObjectId.Hex(),
+		"name":                          body.Name,
+		"storj_access_grant":            body.StorjAccessGrant,
+		"storj_access_grant_expires_at": body.StorjAccessGrantExpiresAt,
 	})
 }
 
