@@ -18,7 +18,9 @@ type Commit struct {
 	DeletedFiles []string `json:"deleted_files,omitempty" bson:"deleted_files,omitempty"`
 	// Map of file path to hash
 	HashMap map[string]string `json:"hash_map,omitempty" bson:"hash_map,omitempty"`
-	// TODO: Add user ID
+	// ID of the user who made the commit.
+	// If empty, then the system created it.
+	AuthorID string `json:"author_id,omitempty" bson:"author_id,omitempty"`
 }
 
 // Serialized version of Commit (ObjectID is replaced with string)
@@ -38,5 +40,7 @@ type CommitSerialized struct {
 	DeletedFiles []string `json:"deleted_files,omitempty"`
 	// Map of file path to hash
 	HashMap map[string]string `json:"hash_map,omitempty"`
-	// TODO: Add user ID
+	// ID of the user who made the commit.
+	// If empty, then the system created it.
+	AuthorID string `json:"author_id,omitempty"`
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/qc-api/config"
+	"github.com/joshnies/qc-api/lib/auth"
 	"github.com/joshnies/qc-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -132,6 +133,14 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Get user ID
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
 	// Parse request body
 	var reqBody models.CommitSerialized
 	if err := c.BodyParser(&reqBody); err != nil {
@@ -226,6 +235,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		ModifiedFiles: reqBody.ModifiedFiles,
 		DeletedFiles:  reqBody.DeletedFiles,
 		HashMap:       reqBody.HashMap,
+		AuthorID:      userId,
 	}
 
 	// Insert commit into database
