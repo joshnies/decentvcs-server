@@ -159,6 +159,7 @@ func CreateProject(c *fiber.Ctx) error {
 		ID:        branchId,
 		CreatedAt: time.Now().Unix(),
 		Name:      "stable",
+		ProjectID: project.ID,
 		CommitID:  commit.ID,
 	}
 

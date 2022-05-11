@@ -70,11 +70,19 @@ func GetOneBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get URL params
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
 	bid := c.Params("bid")
 	var filterName string
 	objId, err := primitive.ObjectIDFromHex(bid)
 	if err != nil {
-		filterName = c.Params(bid)
+		filterName = bid
 	}
 
 	// Build mongo aggregation pipeline
@@ -82,10 +90,10 @@ func GetOneBranch(c *fiber.Ctx) error {
 
 	if objId != primitive.NilObjectID {
 		// Filter by ID
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"_id": objId}})
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "_id": objId}})
 	} else {
 		// Filter by name
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"name": filterName}})
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "name": filterName}})
 	}
 
 	if c.Query("join_commit") == "true" {
@@ -106,12 +114,16 @@ func GetOneBranch(c *fiber.Ctx) error {
 				"$unset": "commit_id",
 			},
 		}...)
+
+		fmt.Println("Joining commit")
 	}
+
+	fmt.Printf("pipeline: %+v\n", pipeline)
 
 	// Get branch from database, including commit it currently points to
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error getting branch:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -119,17 +131,22 @@ func GetOneBranch(c *fiber.Ctx) error {
 	defer cur.Close(ctx)
 
 	// Iterate over the results and decode into slice of Branches
-	cur.Next(ctx)
-	var res models.BranchWithCommit
-	err = cur.Decode(&res)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+	if cur.Next(ctx) {
+		var res models.BranchWithCommit
+		err = cur.Decode(&res)
+		if err != nil {
+			fmt.Println("Error decoding branch:", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		return c.JSON(res)
 	}
 
-	return c.JSON(res)
+	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		"error": "Not found",
+	})
 }
 
 // Create a new branch.
@@ -146,6 +163,15 @@ func GetOneBranch(c *fiber.Ctx) error {
 func CreateBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	// Get URL params
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
 
 	// Parse body
 	var body models.BranchCreateDTO
@@ -164,7 +190,7 @@ func CreateBranch(c *fiber.Ctx) error {
 
 	// Get commit by index
 	var commit models.Commit
-	err := config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"index": body.CommitIndex}).Decode(&commit)
+	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": body.CommitIndex}).Decode(&commit)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Commit not found",
@@ -176,6 +202,7 @@ func CreateBranch(c *fiber.Ctx) error {
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Name:      body.Name,
+		ProjectID: projectId,
 		CommitID:  commit.ID,
 	}
 
