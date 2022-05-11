@@ -153,14 +153,14 @@ func GetOneBranchWithCommit(c *fiber.Ctx) error {
 // Request body:
 //
 // - name: Branch name
-// - commit_id: Commit ID this branch points to
+// - commit_index: Index of the commit this branch points to
 //
 func CreateBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Parse body
-	var body models.Branch
+	var body models.BranchCreateDTO
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
@@ -174,16 +174,25 @@ func CreateBranch(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get commit by index
+	var commit models.Commit
+	err := config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"index": body.CommitIndex}).Decode(&commit)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Commit not found",
+		})
+	}
+
 	// Create new branch
 	branch := models.Branch{
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		Name:      body.Name,
-		CommitID:  body.CommitID,
+		CommitID:  commit.ID,
 	}
 
 	// Create branch in database
-	_, err := config.MI.DB.Collection("branches").InsertOne(ctx, branch)
+	_, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

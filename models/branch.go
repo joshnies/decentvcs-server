@@ -16,3 +16,8 @@ type BranchWithCommit struct {
 	Name      string             `json:"name" bson:"name"`
 	Commit    Commit             `json:"commit" bson:"commit"`
 }
+
+type BranchCreateDTO struct {
+	Name        string `json:"name,omitempty"`
+	CommitIndex int    `json:"commit_index,omitempty"`
+}
