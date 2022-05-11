@@ -102,7 +102,10 @@ func GetManyCommits(c *fiber.Ctx) error {
 		}
 	}
 
+	fmt.Printf("Filter: %+v\n", filter)
+
 	// Get commits from mongo
+	// Includes branch
 	cur, err := config.MI.DB.Collection("commits").Aggregate(ctx, []bson.M{
 		{
 			"$match": filter,
@@ -122,6 +125,12 @@ func GetManyCommits(c *fiber.Ctx) error {
 				"foreignField": "_id",
 				"as":           "branch",
 			},
+		},
+		{
+			"$unwind": "$branch",
+		},
+		{
+			"$unset": "branch_id",
 		},
 	})
 	if err != nil {
