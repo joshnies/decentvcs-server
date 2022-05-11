@@ -112,7 +112,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 		},
 		{
 			"$sort": bson.M{
-				"created_at": 1, // ascending
+				"created_at": -1, // ascending
 			},
 		},
 		{
