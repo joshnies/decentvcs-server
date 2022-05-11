@@ -10,5 +10,5 @@ func RouteBranches(router fiber.Router) {
 	router.Post("/", controllers.CreateBranch)
 	router.Get("/:bid", controllers.GetOneBranch)
 	router.Get("/:bid/commit", controllers.GetOneBranchWithCommit)
-	router.Get("/:bid/commits", controllers.GetManyCommits)
+	router.Get("/:bid/commits", controllers.GetManyCommitsForBranch)
 }

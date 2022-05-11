@@ -16,8 +16,140 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Get many commits.
+// Get many commits for the given project, regardless of branch.
+//
+// URL params:
+//
+// - pid: project ID
+//
+// Query params:
+//
+// - before: commit ID to compare with
+//
+// - after: commit ID to compare with
+//
+// - limit: number of commits to return
+//
 func GetManyCommits(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get limit query param
+	limitStr := c.Query("limit")
+	if limitStr == "" {
+		limitStr = "10"
+	}
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
+	// Get project ID
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Get compared commit ID as string
+	comparedCommitIdStr := c.Query("before")
+	if comparedCommitIdStr == "" {
+		comparedCommitIdStr = c.Query("after")
+	}
+
+	// If "before" or "after" query param set, get it from database
+	var comparedCommit models.Commit
+	if comparedCommitIdStr != "" {
+		comparedCommitId, err := primitive.ObjectIDFromHex(comparedCommitIdStr)
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "Invalid commit ID; must be an ObjectID hexadecimal",
+			})
+		}
+
+		// Get compared commit from database
+		err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{
+			"_id":        comparedCommitId,
+			"project_id": projectId,
+		}).Decode(&comparedCommit)
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "No commit found for query param",
+			})
+		}
+	}
+
+	// Get commits from database
+	filter := bson.M{"project_id": projectId}
+
+	if comparedCommitIdStr != "" {
+		if c.Query("before") != "" {
+			// Before
+			filter["created_at"] = bson.M{
+				"$lt": comparedCommit.CreatedAt,
+			}
+		} else {
+			// After
+			filter["created_at"] = bson.M{
+				"$gt": comparedCommit.CreatedAt,
+			}
+		}
+	}
+
+	// TODO: Add lookup for branch
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter,
+		options.Find().SetSort(bson.D{{"created_at", 1}}), // ascending
+		options.Find().SetLimit(limit),
+	)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	defer cur.Close(ctx)
+
+	// Iterate over the results and decode into slice of Commits
+	var result []models.Commit
+	for cur.Next(ctx) {
+		var decoded models.Commit
+		err := cur.Decode(&decoded)
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		result = append(result, decoded)
+	}
+
+	return c.JSON(result)
+}
+
+// Get many commits for the given branch.
+//
+// URL params:
+//
+// - pid: project ID
+//
+// - bid: branch ID
+//
+// Query params:
+//
+// - before: commit ID to compare with
+//
+// - after: commit ID to compare with
+//
+// - limit: number of commits to return
+//
+func GetManyCommitsForBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
