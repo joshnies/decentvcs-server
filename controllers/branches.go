@@ -56,72 +56,60 @@ func GetManyBranches(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Get one branch.
-//
-// URL params:
-//
-// - bid: Branch ID
-//
-func GetOneBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get query params
-	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
-
-	// Get branch from database
-	var result models.Branch
-	err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	return c.JSON(result)
-}
-
 // Get one branch with commit it currently points to.
 //
 // URL params:
 //
-// - bid: Branch ID
+// - bid: Branch ID or name
 //
-func GetOneBranchWithCommit(c *fiber.Ctx) error {
+// Query params:
+//
+// - join_commit: Whether to join commit to branch.
+func GetOneBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Get query params
-	objId, _ := primitive.ObjectIDFromHex(c.Params("bid"))
+	// Get URL params
+	bid := c.Params("bid")
+	var filterName string
+	objId, err := primitive.ObjectIDFromHex(bid)
+	if err != nil {
+		filterName = c.Params(bid)
+	}
+
+	// Build mongo aggregation pipeline
+	pipeline := []bson.M{}
+
+	if objId != primitive.NilObjectID {
+		// Filter by ID
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"_id": objId}})
+	} else {
+		// Filter by name
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"name": filterName}})
+	}
+
+	if c.Query("join_commit") == "true" {
+		// Join commit
+		pipeline = append(pipeline, []bson.M{
+			{
+				"$lookup": bson.M{
+					"from":         "commits",
+					"localField":   "commit_id",
+					"foreignField": "_id",
+					"as":           "commit",
+				},
+			},
+			{
+				"$unwind": "$commit",
+			},
+			{
+				"$unset": "commit_id",
+			},
+		}...)
+	}
 
 	// Get branch from database, including commit it currently points to
-	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
-		{
-			"$match": bson.M{
-				"_id": objId,
-			},
-		},
-		{
-			"$lookup": bson.M{
-				"from":         "commits",
-				"localField":   "commit_id",
-				"foreignField": "_id",
-				"as":           "commit",
-			},
-		},
-		{
-			"$unwind": "$commit",
-		},
-		{
-			"$unset": "commit_id",
-		},
-	})
+	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
