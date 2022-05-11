@@ -85,7 +85,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 		}
 	}
 
-	// Get commits from database
+	// Build bson filter
 	filter := bson.M{"project_id": projectId}
 
 	if comparedCommitIdStr != "" {
@@ -102,11 +102,28 @@ func GetManyCommits(c *fiber.Ctx) error {
 		}
 	}
 
-	// TODO: Add lookup for branch
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter,
-		options.Find().SetSort(bson.D{{"created_at", 1}}), // ascending
-		options.Find().SetLimit(limit),
-	)
+	// Get commits from mongo
+	cur, err := config.MI.DB.Collection("commits").Aggregate(ctx, []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$sort": bson.M{
+				"created_at": 1, // ascending
+			},
+		},
+		{
+			"$limit": limit,
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "branches",
+				"localField":   "branch_id",
+				"foreignField": "_id",
+				"as":           "branch",
+			},
+		},
+	})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -116,9 +133,9 @@ func GetManyCommits(c *fiber.Ctx) error {
 	defer cur.Close(ctx)
 
 	// Iterate over the results and decode into slice of Commits
-	var result []models.Commit
+	var result []models.CommitWithBranch
 	for cur.Next(ctx) {
-		var decoded models.Commit
+		var decoded models.CommitWithBranch
 		err := cur.Decode(&decoded)
 		if err != nil {
 			fmt.Println(err)
