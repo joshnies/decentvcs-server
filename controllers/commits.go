@@ -40,11 +40,16 @@ func GetManyCommits(c *fiber.Ctx) error {
 		})
 	}
 
-	// If "after" query param set, get it from database
-	var afterCommit models.Commit
-	afterCommitIdStr := c.Query("after")
-	if afterCommitIdStr != "" {
-		afterCommitId, err := primitive.ObjectIDFromHex(afterCommitIdStr)
+	// Get compared commit ID as string
+	comparedCommitIdStr := c.Query("before")
+	if comparedCommitIdStr == "" {
+		comparedCommitIdStr = c.Query("after")
+	}
+
+	// If "before" or "after" query param set, get it from database
+	var comparedCommit models.Commit
+	if comparedCommitIdStr != "" {
+		comparedCommitId, err := primitive.ObjectIDFromHex(comparedCommitIdStr)
 		if err != nil {
 			fmt.Println(err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -53,16 +58,16 @@ func GetManyCommits(c *fiber.Ctx) error {
 			})
 		}
 
-		// Get "after" commit from database
+		// Get compared commit from database
 		err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{
-			"_id":        afterCommitId,
+			"_id":        comparedCommitId,
 			"project_id": projectId,
 			"branch_id":  branchId,
-		}).Decode(&afterCommit)
+		}).Decode(&comparedCommit)
 		if err == mongo.ErrNoDocuments {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error":   "Bad request",
-				"message": "No commit found for \"after\" query param",
+				"message": "No commit found for query param",
 			})
 		}
 	}
@@ -70,9 +75,17 @@ func GetManyCommits(c *fiber.Ctx) error {
 	// Get commits from database
 	filter := bson.M{"project_id": projectId, "branch_id": branchId}
 
-	if afterCommitIdStr != "" {
-		filter["created_at"] = bson.M{
-			"$gt": afterCommit.CreatedAt,
+	if comparedCommitIdStr != "" {
+		if c.Query("before") != "" {
+			// Before
+			filter["created_at"] = bson.M{
+				"$lt": comparedCommit.CreatedAt,
+			}
+		} else {
+			// After
+			filter["created_at"] = bson.M{
+				"$gt": comparedCommit.CreatedAt,
+			}
 		}
 	}
 
