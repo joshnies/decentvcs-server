@@ -13,12 +13,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Get many commits.
 func GetManyCommits(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	// Get limit query param
+	limitStr := c.Query("limit")
+	if limitStr == "" {
+		limitStr = "10"
+	}
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
 
 	// Get project ID
 	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
@@ -89,7 +100,10 @@ func GetManyCommits(c *fiber.Ctx) error {
 		}
 	}
 
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter)
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter,
+		options.Find().SetSort(bson.D{{"created_at", 1}}), // ascending
+		options.Find().SetLimit(limit),
+	)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
