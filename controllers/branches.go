@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -209,8 +210,6 @@ func CreateBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Make sure a branch with the given name does not already exist
-
 	// Get commit by index
 	var commit models.Commit
 	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": body.CommitIndex}).Decode(&commit)
@@ -220,22 +219,48 @@ func CreateBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create new branch
-	branch := models.Branch{
-		ID:        primitive.NewObjectID(),
-		CreatedAt: time.Now().Unix(),
-		Name:      body.Name,
-		ProjectID: projectId,
-		CommitID:  commit.ID,
-	}
-
-	// Create branch in database
-	_, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch)
-	if err != nil {
-		fmt.Println(err)
+	// Check if branch already exists
+	var branch models.Branch
+	err = config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"project_id": projectId, "name": body.Name}).Decode(&branch)
+	if err != nil && err != mongo.ErrNoDocuments {
+		fmt.Println("Error getting branch:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
+	}
+	if err == nil {
+		if branch.DeletedAt == 0 {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "Branch already exists",
+			})
+		} else {
+			// Unset "deleted_at" for existing branch
+			_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"project_id": projectId, "_id": branch.ID}, bson.M{"$unset": bson.M{"deleted_at": ""}})
+			if err != nil {
+				fmt.Printf("Error unsetting \"deleted_at\" for existing branch w/ ID \"%s\": %+v\n", branch.ID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		}
+	} else if errors.Is(err, mongo.ErrNoDocuments) {
+		// Create new branch
+		branch = models.Branch{
+			ID:        primitive.NewObjectID(),
+			CreatedAt: time.Now().Unix(),
+			Name:      body.Name,
+			ProjectID: projectId,
+			CommitID:  commit.ID,
+		}
+
+		// Create branch in database
+		_, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch)
+		if err != nil {
+			fmt.Println("Error creating new branch:", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
 	}
 
 	return c.JSON(branch)
