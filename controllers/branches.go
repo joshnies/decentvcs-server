@@ -280,6 +280,37 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get all branches for project
+	var branches []models.Branch
+	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{"project_id": projectId})
+	if err != nil {
+		fmt.Println("Error getting branches:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Iterate over the results and decode into slice of Branches
+	for cur.Next(ctx) {
+		var res models.Branch
+		err = cur.Decode(&res)
+		if err != nil {
+			fmt.Println("Error decoding branch:", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// If there's only one branch, return error
+	if len(branches) == 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Cannot delete the only branch in a project",
+		})
+	}
+
+	// Build mongo pipeline
 	bid := c.Params("bid")
 	var filterName string
 	objId, err := primitive.ObjectIDFromHex(bid)
