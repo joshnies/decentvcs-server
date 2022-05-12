@@ -239,5 +239,49 @@ func CreateBranch(c *fiber.Ctx) error {
 	return c.JSON(branch)
 }
 
+// Soft-delete one branch.
+func DeleteOneBranch(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get URL params
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	bid := c.Params("bid")
+	var filterName string
+	objId, err := primitive.ObjectIDFromHex(bid)
+	if err != nil {
+		filterName = bid
+	}
+
+	filter := bson.M{"project_id": projectId}
+
+	if objId != primitive.NilObjectID {
+		// Filter by ID
+		filter["_id"] = objId
+	} else {
+		// Filter by name
+		filter["name"] = filterName
+	}
+
+	// Soft-delete branch
+	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, filter, bson.M{"$set": bson.M{"deleted_at": time.Now().Unix()}})
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Branch deleted",
+	})
+}
+
 // TODO: Add update route
-// TODO: Add delete route
