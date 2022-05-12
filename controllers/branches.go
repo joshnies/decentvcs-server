@@ -30,7 +30,7 @@ func GetManyBranches(c *fiber.Ctx) error {
 
 	// Build mongo aggregation pipeline
 	pipeline := []bson.M{
-		{"$match": bson.M{"project_id": projectId}},
+		{"$match": bson.M{"project_id": projectId, "deleted_at": bson.M{"$exists": false}}},
 	}
 
 	if c.Query("join_commit") == "true" {
@@ -115,10 +115,10 @@ func GetOneBranch(c *fiber.Ctx) error {
 
 	if objId != primitive.NilObjectID {
 		// Filter by ID
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "_id": objId}})
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "deleted_at": bson.M{"$exists": false}, "_id": objId}})
 	} else {
 		// Filter by name
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "name": filterName}})
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_id": projectId, "deleted_at": bson.M{"$exists": false}, "name": filterName}})
 	}
 
 	if c.Query("join_commit") == "true" {
@@ -208,6 +208,8 @@ func CreateBranch(c *fiber.Ctx) error {
 			"error": vErr.Error(),
 		})
 	}
+
+	// TODO: Make sure a branch with the given name does not already exist
 
 	// Get commit by index
 	var commit models.Commit
