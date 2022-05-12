@@ -16,7 +16,6 @@ import (
 // Get many branches.
 func GetManyBranches(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	var result []models.Branch
 	defer cancel()
 
 	// Get project ID
@@ -29,19 +28,45 @@ func GetManyBranches(c *fiber.Ctx) error {
 		})
 	}
 
+	// Build mongo aggregation pipeline
+	pipeline := []bson.M{
+		{"$match": bson.M{"project_id": projectId}},
+	}
+
+	if c.Query("join_commit") == "true" {
+		// Join commit
+		pipeline = append(pipeline, []bson.M{
+			{
+				"$lookup": bson.M{
+					"from":         "commits",
+					"localField":   "commit_id",
+					"foreignField": "_id",
+					"as":           "commit",
+				},
+			},
+			{
+				"$unwind": "$commit",
+			},
+			{
+				"$unset": "commit_id",
+			},
+		}...)
+	}
+
 	// Get branches from database
-	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{"project_id": projectId})
+	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
+	defer cur.Close(ctx)
 
 	// Iterate over the results and decode into slice of Branches
-	defer cur.Close(ctx)
+	var result []models.BranchWithCommit
 	for cur.Next(ctx) {
-		var decoded models.Branch
+		var decoded models.BranchWithCommit
 		err := cur.Decode(&decoded)
 		if err != nil {
 			fmt.Println(err)
@@ -114,11 +139,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 				"$unset": "commit_id",
 			},
 		}...)
-
-		fmt.Println("Joining commit")
 	}
-
-	fmt.Printf("pipeline: %+v\n", pipeline)
 
 	// Get branch from database, including commit it currently points to
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
