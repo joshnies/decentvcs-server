@@ -112,12 +112,16 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Generate default branch ID ahead of time
+	branchId := primitive.NewObjectID()
+
 	// Create new project
 	project := models.Project{
-		ID:        primitive.NewObjectID(),
-		CreatedAt: time.Now().Unix(),
-		OwnerID:   sub,
-		Name:      body.Name,
+		ID:              primitive.NewObjectID(),
+		CreatedAt:       time.Now().Unix(),
+		OwnerID:         sub,
+		Name:            body.Name,
+		DefaultBranchID: branchId,
 	}
 
 	// Create project in database
@@ -128,9 +132,6 @@ func CreateProject(c *fiber.Ctx) error {
 			"error": "Internal server error",
 		})
 	}
-
-	// Generate default branch ID ahead of time
-	branchId := primitive.NewObjectID()
 
 	// Create initial commit
 	commit := models.Commit{
@@ -155,7 +156,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Create default branch
-	branch := models.Branch{
+	branch := models.BranchCreateBSON{
 		ID:        branchId,
 		CreatedAt: time.Now().Unix(),
 		Name:      "stable",
@@ -191,13 +192,15 @@ func CreateProject(c *fiber.Ctx) error {
 // Update a project.
 //
 // URL params:
+//
 // - pid: Project ID
 //
+// Body: (any field from Project)
+//
+// Returns the updated project.
 func UpdateOneProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// TODO: Make sure user is project owner
 
 	// Parse body
 	var body models.Project
@@ -207,7 +210,7 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get project
+	// Parse project ID
 	projectObjectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -216,7 +219,33 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Make sure user is project owner
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Get project to make sure user is owner
+	var project models.Project
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"owner_id": userId}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	updateData := bson.M{}
+	if body.OwnerID != "" {
+		updateData["owner_id"] = body.OwnerID
+	}
 	if body.Name != "" {
 		updateData["name"] = body.Name
 	}
@@ -225,6 +254,9 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 	if body.StorjAccessGrantExpiresAt != 0 {
 		updateData["storj_access_grant_expires_at"] = body.StorjAccessGrantExpiresAt
+	}
+	if body.DefaultBranchID != primitive.NilObjectID {
+		updateData["default_branch_id"] = body.DefaultBranchID
 	}
 
 	// Update project
@@ -242,9 +274,11 @@ func UpdateOneProject(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"_id":                           projectObjectId.Hex(),
+		"owner_id":                      body.OwnerID,
 		"name":                          body.Name,
 		"storj_access_grant":            body.StorjAccessGrant,
 		"storj_access_grant_expires_at": body.StorjAccessGrantExpiresAt,
+		"default_branch_id":             body.DefaultBranchID.Hex(),
 	})
 }
 

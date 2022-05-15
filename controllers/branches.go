@@ -153,22 +153,17 @@ func GetOneBranch(c *fiber.Ctx) error {
 	defer cur.Close(ctx)
 
 	// Iterate over the results and decode into slice of Branches
-	if cur.Next(ctx) {
-		var res models.BranchWithCommit
-		err = cur.Decode(&res)
-		if err != nil {
-			fmt.Println("Error decoding branch:", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		return c.JSON(res)
+	cur.Next(ctx)
+	var res models.BranchWithCommit
+	err = cur.Decode(&res)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
 	}
 
-	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"error": "Not found",
-	})
+	return c.JSON(res)
+
 }
 
 // Get the default branch of a project.
@@ -337,7 +332,7 @@ func CreateBranch(c *fiber.Ctx) error {
 		}
 	} else if errors.Is(err, mongo.ErrNoDocuments) {
 		// Create new branch
-		branch = models.Branch{
+		branch := models.BranchCreateBSON{
 			ID:        primitive.NewObjectID(),
 			CreatedAt: time.Now().Unix(),
 			Name:      body.Name,
@@ -353,6 +348,8 @@ func CreateBranch(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
+
+		return c.JSON(branch)
 	}
 
 	return c.JSON(branch)

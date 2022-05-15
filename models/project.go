@@ -9,4 +9,5 @@ type Project struct {
 	Name                      string             `json:"name" bson:"name" validate:"required"`
 	StorjAccessGrant          string             `json:"storj_access_grant,omitempty" bson:"storj_access_grant,omitempty"`
 	StorjAccessGrantExpiresAt int64              `json:"storj_access_grant_expires_at,omitempty" bson:"storj_access_grant_expires_at,omitempty"`
+	DefaultBranchID           primitive.ObjectID `json:"default_branch_id,omitempty" bson:"default_branch_id,omitempty"`
 }
