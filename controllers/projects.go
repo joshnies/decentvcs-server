@@ -48,9 +48,9 @@ func GetManyProjects(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Get one project.
+// Get one project by ID.
 //
-// Query params:
+// URL params:
 //
 // - id: Project ID
 //
@@ -58,11 +58,44 @@ func GetOneProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result models.Project
 	objId, _ := primitive.ObjectIDFromHex(c.Params("pid"))
 
 	// Get project from database
+	var result models.Project
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(result)
+}
+
+// Get one project by blob.
+//
+// URL params:
+//
+// - oa: Alias of the user or team who owns the project
+//
+// - pname: Name of the project
+//
+func GetOneProjectByBlob(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// ownerAlias := c.Params("oa")
+	projectName := c.Params("pname")
+
+	// Get project from database
+	var result models.Project
+	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"name": projectName}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
