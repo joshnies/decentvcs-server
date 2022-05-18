@@ -367,7 +367,9 @@ func DeleteOneProject(c *fiber.Ctx) error {
 	})
 }
 
-// Create many presigned URLs for storage, scoped to a project.
+// Generate many presigned URLs for the specified storage objects, scoped to a project.
+// These URLs are used by the client to upload files to storage without the need for
+// access keys or ACL.
 //
 // URL params:
 //
@@ -399,8 +401,9 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	}
 
 	// Get project
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
+
 	project := models.Project{}
 	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
@@ -423,8 +426,8 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get presigned URLs
-	urls, err := storage.GetManyPresignedURLs(pid, body.Keys)
+	// Generate presigned URLs
+	keyUrlMap, err := storage.PresignMany(ctx, pid, body.Keys)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -432,5 +435,5 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(urls)
+	return c.JSON(keyUrlMap)
 }

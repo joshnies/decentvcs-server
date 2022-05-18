@@ -2,15 +2,17 @@ package config
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"time"
 
-	"storj.io/uplink"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type StorageInstance struct {
-	Access *uplink.Access
+	Client *s3.Client
 	Bucket string
 }
 
@@ -21,37 +23,55 @@ func InitStorage() {
 	defer cancel()
 
 	// Validate environment variables
-	accessGrant := os.Getenv("STORJ_ACCESS_GRANT")
-	if accessGrant == "" {
-		panic("STORJ_ACCESS_GRANT is not set")
+	if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
+		panic("AWS_ACCESS_KEY_ID is not set")
 	}
 
-	bucket := os.Getenv("STORJ_BUCKET")
+	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
+		panic("AWS_SECRET_ACCESS_KEY is not set")
+	}
+
+	bucket := os.Getenv("AWS_S3_BUCKET")
 	if bucket == "" {
-		panic("STORJ_BUCKET is not set")
+		panic("AWS_S3_BUCKET is not set")
 	}
 
-	// Create access grant to Storj bucket
-	access, err := uplink.ParseAccess(accessGrant)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to authenticate with Storj: %s", err))
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		panic("AWS_REGION is not set")
 	}
 
-	// Open Storj project and ensure bucket exists
-	project, err := uplink.OpenProject(ctx, access)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open Storj project: %s", err))
+	s3Endpoint := os.Getenv("AWS_S3_ENDPOINT")
+	if s3Endpoint == "" {
+		panic("AWS_S3_ENDPOINT is not set")
 	}
-	defer project.Close()
 
-	_, err = project.EnsureBucket(ctx, bucket)
+	// Initialize S3 client
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if service == s3.ServiceID {
+			return aws.Endpoint{
+				PartitionID: "aws",
+				// URL:           "https://s3.filebase.com",
+				URL: s3Endpoint,
+				// SigningRegion: "us-east-1",
+				SigningRegion: region,
+			}, nil
+		}
+
+		// Fallback to default resolution
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
+
+	awscfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithEndpointResolverWithOptions(customResolver))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to ensure bucket %s (it probably doesn't exist): %s", bucket, err))
+		log.Fatalf("failed to load AWS SDK config: %v", err)
 	}
+
+	client := s3.NewFromConfig(awscfg)
 
 	// Create global storage instance
 	SI = StorageInstance{
-		Access: access,
+		Client: client,
 		Bucket: bucket,
 	}
 }
