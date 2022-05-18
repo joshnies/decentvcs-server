@@ -12,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"storj.io/uplink"
 )
 
 // Get many projects.
@@ -282,12 +281,6 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	if body.Name != "" {
 		updateData["name"] = body.Name
 	}
-	if body.StorjAccessGrant != "" {
-		updateData["storj_access_grant"] = body.StorjAccessGrant
-	}
-	if body.StorjAccessGrantExpiresAt != 0 {
-		updateData["storj_access_grant_expires_at"] = body.StorjAccessGrantExpiresAt
-	}
 	if body.DefaultBranchID != primitive.NilObjectID {
 		updateData["default_branch_id"] = body.DefaultBranchID
 	}
@@ -306,73 +299,10 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"_id":                           projectObjectId.Hex(),
-		"owner_id":                      body.OwnerID,
-		"name":                          body.Name,
-		"storj_access_grant":            body.StorjAccessGrant,
-		"storj_access_grant_expires_at": body.StorjAccessGrantExpiresAt,
-		"default_branch_id":             body.DefaultBranchID.Hex(),
-	})
-}
-
-// Get Storj access grant for project.
-//
-// URL params:
-//
-// - id: Project ID
-//
-func GetAccessGrant(c *fiber.Ctx) error {
-	// TODO: Return unauthorized if user is not logged in
-
-	// Get project
-	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid pid",
-		})
-	}
-
-	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": projectObjectId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Create uplink access grant
-	access, err := config.SI.Access.Share(uplink.FullPermission(), uplink.SharePrefix{
-		Bucket: config.SI.Bucket,
-		Prefix: pid,
-	})
-
-	if err != nil {
-		println(fmt.Sprintf("Failed to create access grant to Storj bucket %s: %s", config.SI.Bucket, err))
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Serialize restricted access grant so it can be used later with `ParseAccess()` (or equiv.)
-	// by the client
-	accessSerialized, err := access.Serialize()
-	if err != nil {
-		println(fmt.Sprintf("Failed to serialize access grant to Storj bucket %s: %s", config.SI.Bucket, err))
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"access_grant": accessSerialized,
+		"_id":               projectObjectId.Hex(),
+		"owner_id":          body.OwnerID,
+		"name":              body.Name,
+		"default_branch_id": body.DefaultBranchID.Hex(),
 	})
 }
 
