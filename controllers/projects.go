@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -376,6 +377,8 @@ func DeleteOneProject(c *fiber.Ctx) error {
 //
 // - pid: Project ID
 //
+// - method: Presign method ("PUT" or "GET")
+//
 // Body:
 //
 // - keys: Array of object keys
@@ -383,6 +386,14 @@ func DeleteOneProject(c *fiber.Ctx) error {
 // Returns an array of presigned URLs.
 //
 func CreatePresignedURLs(c *fiber.Ctx) error {
+	// Validate presign method
+	methodStr := strings.ToUpper(c.Params("method"))
+	if methodStr != "PUT" && methodStr != "GET" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid presign method. Must be PUT or GET",
+		})
+	}
+
 	// Get user ID
 	userId, err := auth.GetUserID(c)
 	if err != nil {
@@ -428,8 +439,15 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	}
 
 	// Generate presigned URLs
+	var method storage.PresignMethod
+	if methodStr == "PUT" {
+		method = storage.PresignPUT
+	} else {
+		method = storage.PresignGET
+	}
+
 	keyUrlMap, err := storage.PresignMany(c, ctx, storage.PresignManyParams{
-		Method: storage.PresignPUT,
+		Method: method,
 		PID:    pid,
 		Keys:   body.Keys,
 	})
