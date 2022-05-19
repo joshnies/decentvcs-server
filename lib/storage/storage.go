@@ -67,7 +67,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 	}
 
 	var project models.Project
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"project_id": projectObjId, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjId, "owner_id": userId}).Decode(&project)
 	if err != nil {
 		return nil, err
 	}
