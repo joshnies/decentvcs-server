@@ -50,10 +50,8 @@ func InitStorage() {
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		if service == s3.ServiceID {
 			return aws.Endpoint{
-				PartitionID: "aws",
-				// URL:           "https://s3.filebase.com",
-				URL: s3Endpoint,
-				// SigningRegion: "us-east-1",
+				PartitionID:   "aws",
+				URL:           s3Endpoint,
 				SigningRegion: region,
 			}, nil
 		}

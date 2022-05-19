@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/joshnies/qc-api/lib/auth"
 	"github.com/joshnies/qc-api/models"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PresignMethod int
@@ -55,6 +54,12 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 	pid := params.PID
 	keys := params.Keys
 
+	// Create project object ID
+	projectObjId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure user has access to the project
 	userId, err := auth.GetUserID(fctx)
 	if err != nil {
@@ -62,12 +67,8 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 	}
 
 	var project models.Project
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"project_id": pid, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"project_id": projectObjId, "owner_id": userId}).Decode(&project)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, fmt.Errorf("unauthorized")
-		}
-
 		return nil, err
 	}
 
@@ -79,12 +80,11 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 
 	for _, localKey := range keys {
 		// Generate presigned URL
-		projectKey := fmt.Sprintf("%s/%s", pid, localKey)
 		go presignRoutine(ctx, PresignRoutineParams{
 			Method:     method,
 			Client:     client,
 			LocalKey:   localKey,
-			ProjectKey: projectKey,
+			ProjectKey: fmt.Sprintf("%s/%s", pid, localKey),
 			KeyURLMap:  keyUrlMap,
 			WG:         &wg,
 		})
