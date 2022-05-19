@@ -427,7 +427,11 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	}
 
 	// Generate presigned URLs
-	keyUrlMap, err := storage.PresignMany(ctx, pid, body.Keys)
+	keyUrlMap, err := storage.PresignMany(c, ctx, storage.PresignManyParams{
+		Method: storage.PresignPUT,
+		PID:    pid,
+		Keys:   body.Keys,
+	})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
