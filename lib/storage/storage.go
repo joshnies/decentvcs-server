@@ -40,9 +40,11 @@ type PresignRoutineParams struct {
 //
 // Params:
 //
-// - pid: Project ID
+// - fctx: Fiber context
 //
-// - keys: Object keys
+// - ctx: Go context
+//
+// - params: Additional params for presigning
 //
 // Returns map of keys to presigned URLs.
 //
@@ -72,53 +74,36 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 		return nil, err
 	}
 
-	// Generate presigned URLs in parallel
+	// Generate presigned URLs
 	keyUrlMap := make(map[string]string)
 
-	var wg sync.WaitGroup
-	wg.Add(len(keys))
-
 	for _, localKey := range keys {
-		// Generate presigned URL
-		go presignRoutine(ctx, PresignRoutineParams{
-			Method:     method,
-			Client:     client,
-			LocalKey:   localKey,
-			ProjectKey: fmt.Sprintf("%s/%s", pid, localKey),
-			KeyURLMap:  keyUrlMap,
-			WG:         &wg,
-		})
-	}
+		projectKey := fmt.Sprintf("%s/%s", pid, localKey)
 
-	wg.Wait()
-	return keyUrlMap, nil
-}
+		if method == PresignPUT {
+			// PUT
+			res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
+				Bucket: &config.SI.Bucket,
+				Key:    &projectKey,
+			})
+			if err != nil {
+				panic(err)
+			}
 
-func presignRoutine(ctx context.Context, params PresignRoutineParams) {
-	defer params.WG.Done()
+			keyUrlMap[localKey] = res.URL
+		} else {
+			// GET
+			res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
+				Bucket: &config.SI.Bucket,
+				Key:    &projectKey,
+			})
+			if err != nil {
+				panic(err)
+			}
 
-	if params.Method == PresignPUT {
-		// PUT
-		res, err := params.Client.PresignPutObject(ctx, &s3.PutObjectInput{
-			Bucket: &config.SI.Bucket,
-			Key:    &params.ProjectKey,
-		})
-		if err != nil {
-			panic(err)
+			keyUrlMap[localKey] = res.URL
 		}
-
-		params.KeyURLMap[params.LocalKey] = res.URL
-		return
 	}
 
-	// GET
-	res, err := params.Client.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: &config.SI.Bucket,
-		Key:    &params.ProjectKey,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	params.KeyURLMap[params.LocalKey] = res.URL
+	return keyUrlMap, nil
 }
