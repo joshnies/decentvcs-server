@@ -47,6 +47,7 @@ func main() {
 	routes.RouteProjects(v1.Group("/projects"))
 	routes.RouteCommits(v1.Group("/projects/:pid/commits"))
 	routes.RouteBranches(v1.Group("/projects/:pid/branches"))
+	routes.RouteStorage(v1.Group("/projects/:pid/storage"))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.I.Port))
