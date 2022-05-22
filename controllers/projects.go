@@ -449,7 +449,7 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	keyUrlMap, err := storage.PresignMany(c, ctx, storage.PresignManyParams{
 		Method: method,
 		PID:    pid,
-		Keys:   body.Keys,
+		Data:   body.Data,
 	})
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {

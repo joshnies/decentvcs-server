@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,10 +15,32 @@ import (
 type StorageInstance struct {
 	Client *s3.Client
 	Bucket string
+	// Size of multipart upload parts in bytes
+	MultipartUploadPartSize int64
 }
 
 var SI StorageInstance
 
+func getMultipartUploadPartSize() int64 {
+	defaultSize := int64(5 * 1024 * 1024) // 5MB
+	size := os.Getenv("MULTIPART_UPLOAD_PART_SIZE")
+	if size != "" {
+		sizeInt, err := strconv.ParseInt(size, 10, 64)
+		if err != nil {
+			panic("Failed to parse MULTIPART_UPLOAD_PART_SIZE environment variable")
+		}
+		if sizeInt < defaultSize {
+			log.Println("MULTIPART_UPLOAD_PART_SIZE too small, using 5MB")
+			return defaultSize
+		}
+		return sizeInt
+	}
+
+	// Default to 5MB
+	return defaultSize
+}
+
+// Initialize storage config instance.
 func InitStorage() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -69,7 +92,8 @@ func InitStorage() {
 
 	// Create global storage instance
 	SI = StorageInstance{
-		Client: client,
-		Bucket: bucket,
+		Client:                  client,
+		Bucket:                  bucket,
+		MultipartUploadPartSize: getMultipartUploadPartSize(),
 	}
 }

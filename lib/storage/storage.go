@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gofiber/fiber/v2"
@@ -24,7 +25,8 @@ const (
 type PresignManyParams struct {
 	Method PresignMethod
 	PID    string
-	Keys   []string
+	// Map of object key (typically the file hash) to an object containing info about the file's upload.
+	Data map[string]models.PresignObjectData
 }
 
 type PresignRoutineParams struct {
@@ -48,13 +50,12 @@ type PresignRoutineParams struct {
 //
 // Returns map of keys to presigned URLs.
 //
-func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams) (map[string]string, error) {
+func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams) (map[string][]string, error) {
 	client := s3.NewPresignClient(config.SI.Client)
 
 	// Destructure params
 	method := params.Method
 	pid := params.PID
-	keys := params.Keys
 
 	// Create project object ID
 	projectObjId, err := primitive.ObjectIDFromHex(pid)
@@ -75,22 +76,70 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 	}
 
 	// Generate presigned URLs
-	keyUrlMap := make(map[string]string)
+	keyUrlMap := make(map[string][]string)
 
-	for _, localKey := range keys {
+	for localKey, data := range params.Data {
 		projectKey := fmt.Sprintf("%s/%s", pid, localKey)
 
 		if method == PresignPUT {
 			// PUT
-			res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
-				Bucket: &config.SI.Bucket,
-				Key:    &projectKey,
-			})
-			if err != nil {
-				panic(err)
-			}
+			if data.Multipart {
+				// Multipart upload
+				contentType := data.ContentType
+				expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
+				multipartRes, err := config.SI.Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket:      &config.SI.Bucket,
+					Key:         &projectKey,
+					ContentType: &contentType,
+					Expires:     &expiresAt,
+				})
+				if err != nil {
+					return nil, err
+				}
 
-			keyUrlMap[localKey] = res.URL
+				keyUrlMap[localKey] = []string{}
+				remaining := data.Size
+				var partNum int32 = 1
+				var currentSize int64
+				for remaining != 0 {
+					// Determine current part size
+					if remaining < config.SI.MultipartUploadPartSize {
+						currentSize = remaining
+					} else {
+						currentSize = config.SI.MultipartUploadPartSize
+					}
+
+					// Generate presigned URL
+					res, err := client.PresignUploadPart(ctx, &s3.UploadPartInput{
+						Bucket:        &config.SI.Bucket,
+						Key:           &projectKey,
+						UploadId:      multipartRes.UploadId,
+						PartNumber:    partNum,
+						ContentLength: config.SI.MultipartUploadPartSize,
+					})
+					if err != nil {
+						return nil, err
+					}
+
+					// Add presigned URL to map
+					keyUrlMap[localKey] = append(keyUrlMap[localKey], res.URL)
+
+					// Update remaining size and part number
+					remaining -= currentSize
+					partNum++
+				}
+			} else {
+				// Single upload
+				res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
+					Bucket: &config.SI.Bucket,
+					Key:    &projectKey,
+				})
+				if err != nil {
+					panic(err)
+				}
+
+				keyUrlMap[localKey] = []string{res.URL}
+			}
 		} else {
 			// GET
 			res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
@@ -101,7 +150,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 				panic(err)
 			}
 
-			keyUrlMap[localKey] = res.URL
+			keyUrlMap[localKey] = []string{res.URL}
 		}
 	}
 
