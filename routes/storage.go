@@ -6,6 +6,7 @@ import (
 )
 
 func RouteStorage(router fiber.Router) {
-	router.Post("/presign/:method", controllers.CreatePresignedURLs)
+	router.Post("/presign/:method", controllers.PresignOne)
+	router.Post("/presign/many/:method", controllers.PresignMany)
 	router.Post("/multipart/complete", controllers.CompleteMultipartUpload)
 }

@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Generate many presigned URLs for the specified storage objects, scoped to a project.
+// Generate presigned URLs for many objects, scoped to a project.
 // These URLs are used by the client to upload files to storage without the need for
 // access keys or ACL.
 //
@@ -29,13 +29,11 @@ import (
 //
 // - method: Presign method ("PUT" or "GET")
 //
-// Body:
-//
-// - keys: Array of object keys
+// Body: TODO
 //
 // Returns an array of presigned URLs.
 //
-func CreatePresignedURLs(c *fiber.Ctx) error {
+func PresignMany(c *fiber.Ctx) error {
 	// Validate presign method
 	methodStr := strings.ToUpper(c.Params("method"))
 	if methodStr != "PUT" && methodStr != "GET" {
@@ -81,7 +79,7 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var body models.PresignedURLRequestBody
+	var body models.PresignManyRequestBody
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
@@ -115,6 +113,105 @@ func CreatePresignedURLs(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(keyUrlMap)
+}
+
+// Generate presigned URL(s) for the specified storage object, scoped to a project.
+// These URLs are used by the client to upload files to storage without the need for
+// access keys or ACL.
+//
+// URL params:
+//
+// - pid: Project ID
+//
+// - method: Presign method ("PUT" or "GET")
+//
+// Body: TODO
+//
+// Returns an array of presigned URLs.
+//
+func PresignOne(c *fiber.Ctx) error {
+	// Validate presign method
+	methodStr := strings.ToUpper(c.Params("method"))
+	if methodStr != "PUT" && methodStr != "GET" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid presign method. Must be PUT or GET",
+		})
+	}
+
+	// Get user ID
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Parse project ID
+	pid := c.Params("pid")
+	projectObjectId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Get project
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	project := models.Project{}
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Parse request body
+	var body models.PresignOneRequestBody
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// Generate presigned URLs
+	var method storage.PresignMethod
+	if methodStr == "PUT" {
+		method = storage.PresignPUT
+	} else {
+		method = storage.PresignGET
+	}
+
+	urls, err := storage.PresignOne(c, ctx, storage.PresignOneParams{
+		Method:      method,
+		PID:         pid,
+		Key:         body.Key,
+		Multipart:   body.Multipart,
+		Size:        body.Size,
+		ContentType: body.ContentType,
+	})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Not found",
+			})
+		}
+
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(urls)
 }
 
 // Complete an S3 multipart upload.

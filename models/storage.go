@@ -10,9 +10,17 @@ type PresignObjectData struct {
 	ContentType string `json:"content_type"`
 }
 
-// Request body for `CreatePresignedURLs` route.
-type PresignedURLRequestBody struct {
+// Request body for `CreateManyPresignedURLs` route.
+type PresignManyRequestBody struct {
 	Data map[string]PresignObjectData `json:"data"`
+}
+
+// Request body for `CreateOnePresignedURL` route.
+type PresignOneRequestBody struct {
+	Key         string `json:"key"`
+	Multipart   bool   `json:"multipart"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"content_type"`
 }
 
 // Request body for `CompleteMultipartUpload` route.
