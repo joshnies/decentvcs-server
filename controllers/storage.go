@@ -190,7 +190,7 @@ func PresignOne(c *fiber.Ctx) error {
 		method = storage.PresignGET
 	}
 
-	urls, err := storage.PresignOne(c, ctx, storage.PresignOneParams{
+	res, err := storage.PresignOne(c, ctx, storage.PresignOneParams{
 		Method:      method,
 		PID:         pid,
 		Key:         body.Key,
@@ -211,7 +211,7 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(urls)
+	return c.JSON(res)
 }
 
 // Complete an S3 multipart upload.

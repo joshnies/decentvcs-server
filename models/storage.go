@@ -10,12 +10,12 @@ type PresignObjectData struct {
 	ContentType string `json:"content_type"`
 }
 
-// Request body for `CreateManyPresignedURLs` route.
+// Request body for `PresignMany` route.
 type PresignManyRequestBody struct {
 	Data map[string]PresignObjectData `json:"data"`
 }
 
-// Request body for `CreateOnePresignedURL` route.
+// Request body for `PresignOne` route.
 type PresignOneRequestBody struct {
 	Key         string `json:"key"`
 	Multipart   bool   `json:"multipart"`
@@ -23,14 +23,25 @@ type PresignOneRequestBody struct {
 	ContentType string `json:"content_type"`
 }
 
+// Response body for `PresignOne` route.
+type PresignOneResponse struct {
+	// S3 multipart upload ID.
+	// Only present if `multipart` is true and method is `PUT`.
+	UploadID string `json:"upload_id"`
+	// Presigned URLs for each part of the object
+	URLs []string `json:"urls"`
+}
+
+type MultipartUploadPart struct {
+	PartNumber int32  `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
 // Request body for `CompleteMultipartUpload` route.
 type CompleteMultipartUploadRequestBody struct {
-	UploadId string `json:"upload_id"`
-	Key      string `json:"key"`
-	Parts    []struct {
-		PartNumber int32  `json:"part_number"`
-		ETag       string `json:"etag"`
-	} `json:"parts"`
+	UploadId string                `json:"upload_id"`
+	Key      string                `json:"key"`
+	Parts    []MultipartUploadPart `json:"parts"`
 }
 
 // Request body for `AbortMultipartUpload` route.

@@ -175,7 +175,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 //
 // Returns presigned URL.
 //
-func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) ([]string, error) {
+func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (models.PresignOneResponse, error) {
 	client := s3.NewPresignClient(config.SI.Client)
 
 	// Destructure params
@@ -185,22 +185,23 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 	// Create project object ID
 	projectObjId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
-		return nil, err
+		return models.PresignOneResponse{}, err
 	}
 
 	// Make sure user has access to the project
 	userId, err := auth.GetUserID(fctx)
 	if err != nil {
-		return nil, err
+		return models.PresignOneResponse{}, err
 	}
 
 	var project models.Project
 	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjId, "owner_id": userId}).Decode(&project)
 	if err != nil {
-		return nil, err
+		return models.PresignOneResponse{}, err
 	}
 
 	projectKey := fmt.Sprintf("%s/%s", pid, params.Key)
+	var uploadId string
 	urls := []string{}
 
 	if method == PresignPUT {
@@ -216,8 +217,10 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 				Expires:     &expiresAt,
 			})
 			if err != nil {
-				return nil, err
+				return models.PresignOneResponse{}, err
 			}
+
+			uploadId = *multipartRes.UploadId
 
 			remaining := params.Size
 			var partNum int32 = 1
@@ -239,7 +242,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 					ContentLength: config.SI.MultipartUploadPartSize,
 				})
 				if err != nil {
-					return nil, err
+					return models.PresignOneResponse{}, err
 				}
 
 				// Add presigned URL to result slice
@@ -274,5 +277,8 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 		urls = append(urls, res.URL)
 	}
 
-	return urls, nil
+	return models.PresignOneResponse{
+		UploadID: uploadId,
+		URLs:     urls,
+	}, nil
 }
