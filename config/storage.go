@@ -54,10 +54,10 @@ func InitStorage() {
 		panic("AWS_SECRET_ACCESS_KEY is not set")
 	}
 
-	// region := os.Getenv("AWS_REGION")
-	// if region == "" {
-	// 	panic("AWS_REGION is not set")
-	// }
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		panic("AWS_REGION is not set")
+	}
 
 	bucket := os.Getenv("AWS_S3_BUCKET")
 	if bucket == "" {
@@ -73,9 +73,9 @@ func InitStorage() {
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		if service == s3.ServiceID {
 			return aws.Endpoint{
-				PartitionID: "aws",
-				URL:         s3Endpoint,
-				// SigningRegion: region,
+				PartitionID:   "aws",
+				URL:           s3Endpoint,
+				SigningRegion: region,
 			}, nil
 		}
 
