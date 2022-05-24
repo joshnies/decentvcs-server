@@ -54,15 +54,15 @@ func InitStorage() {
 		panic("AWS_SECRET_ACCESS_KEY is not set")
 	}
 
-	bucket := os.Getenv("AWS_S3_BUCKET")
-	if bucket == "" {
-		panic("AWS_S3_BUCKET is not set")
-	}
-
 	// region := os.Getenv("AWS_REGION")
 	// if region == "" {
 	// 	panic("AWS_REGION is not set")
 	// }
+
+	bucket := os.Getenv("AWS_S3_BUCKET")
+	if bucket == "" {
+		panic("AWS_S3_BUCKET is not set")
+	}
 
 	s3Endpoint := os.Getenv("AWS_S3_ENDPOINT")
 	if s3Endpoint == "" {
