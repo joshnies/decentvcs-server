@@ -65,30 +65,41 @@ func InitStorage() {
 	}
 
 	s3Endpoint := os.Getenv("AWS_S3_ENDPOINT")
-	if s3Endpoint == "" {
-		panic("AWS_S3_ENDPOINT is not set")
-	}
 
 	// Initialize S3 client
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if service == s3.ServiceID {
-			return aws.Endpoint{
-				PartitionID:   "aws",
-				URL:           s3Endpoint,
-				SigningRegion: region,
-			}, nil
+	var client *s3.Client
+
+	if s3Endpoint != "" {
+		// With custom endpoint
+		// Used for S3-compatible storage providers other than AWS
+		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			if service == s3.ServiceID {
+				return aws.Endpoint{
+					PartitionID:   "aws",
+					URL:           s3Endpoint,
+					SigningRegion: region,
+				}, nil
+			}
+
+			// Fallback to default resolution
+			return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+		})
+
+		awscfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithEndpointResolverWithOptions(customResolver))
+		if err != nil {
+			log.Fatalf("failed to load AWS SDK config: %v", err)
 		}
 
-		// Fallback to default resolution
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
+		client = s3.NewFromConfig(awscfg)
+	} else {
+		// With default endpoint (AWS)
+		awscfg, err := awsconfig.LoadDefaultConfig(ctx)
+		if err != nil {
+			log.Fatalf("failed to load AWS SDK config: %v", err)
+		}
 
-	awscfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithEndpointResolverWithOptions(customResolver))
-	if err != nil {
-		log.Fatalf("failed to load AWS SDK config: %v", err)
+		client = s3.NewFromConfig(awscfg)
 	}
-
-	client := s3.NewFromConfig(awscfg)
 
 	// Create global storage instance
 	SI = StorageInstance{
