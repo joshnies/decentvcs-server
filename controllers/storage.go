@@ -271,9 +271,10 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Complete multipart upload
+	key := fmt.Sprintf("%s/%s", project.ID, body.Key)
 	_, err = config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &config.SI.Bucket,
-		Key:      &body.Key,
+		Key:      &key,
 		UploadId: &body.UploadId,
 		MultipartUpload: &awstypes.CompletedMultipartUpload{
 			Parts: parts,
