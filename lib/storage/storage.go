@@ -90,6 +90,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 		if method == PresignPUT {
 			// PUT
 			if data.Multipart {
+				// TODO: Generate non-multipart presigned URL if file size is less than multipart upload part size
 				// Multipart upload
 				contentType := data.ContentType
 				expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
@@ -121,7 +122,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 						Key:           &projectKey,
 						UploadId:      multipartRes.UploadId,
 						PartNumber:    partNum,
-						ContentLength: config.SI.MultipartUploadPartSize,
+						ContentLength: currentSize,
 					})
 					if err != nil {
 						return nil, err
