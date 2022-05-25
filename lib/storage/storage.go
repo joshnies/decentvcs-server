@@ -222,6 +222,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 
 			uploadId = *multipartRes.UploadId
 
+			// TODO: Generate non-multipart presigned URL if file size is less than multipart upload part size
 			remaining := params.Size
 			var partNum int32 = 1
 			var currentSize int64
@@ -239,7 +240,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 					Key:           &projectKey,
 					UploadId:      multipartRes.UploadId,
 					PartNumber:    partNum,
-					ContentLength: config.SI.MultipartUploadPartSize,
+					ContentLength: currentSize,
 				})
 				if err != nil {
 					return models.PresignOneResponse{}, err
