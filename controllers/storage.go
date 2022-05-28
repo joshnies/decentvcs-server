@@ -287,7 +287,7 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	// for _, upload := range debugRes.Uploads {
 	// 	fmt.Printf("[DEBUG] Upload: %s\n", *upload.UploadId)
 	// 	fmt.Printf("[DEBUG]\tKey: %s\n", *upload.Key)
-	// 	fmt.Printf("[DEBUG]\tInitiator: %s\n\n", upload.Initiated.Format("2006-01-02 15:04:05"))
+	// 	fmt.Printf("[DEBUG]\tInitiated at: %s\n\n", upload.Initiated.Format("2006-01-02 15:04:05"))
 	// }
 	// ~DEBUG
 
