@@ -322,19 +322,14 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Construct parts
-	parts := make([]awstypes.CompletedPart, len(body.Parts))
-	for i, part := range body.Parts {
-		parts[i] = awstypes.CompletedPart{
-			ETag:       &part.ETag,
+	parts := []awstypes.CompletedPart{}
+	for _, part := range body.Parts {
+		etag := part.ETag
+		parts = append(parts, awstypes.CompletedPart{
+			ETag:       &etag,
 			PartNumber: part.PartNumber,
-		}
+		})
 	}
-
-	// DEBUG
-	for _, part := range parts {
-		fmt.Printf("Part %d: %s\n", part.PartNumber, *part.ETag)
-	}
-	// ~DEBUG
 
 	// Complete multipart upload
 	key := fmt.Sprintf("%s/%s", pid, body.Key)
