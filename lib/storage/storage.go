@@ -85,7 +85,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 	keyUrlMap := make(map[string][]string)
 
 	for localKey, data := range params.Data {
-		projectKey := fmt.Sprintf("%s/%s", pid, localKey)
+		remoteKey := fmt.Sprintf("%s/%s", pid, localKey)
 
 		if method == PresignPUT {
 			// PUT
@@ -96,7 +96,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 				expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
 				multipartRes, err := config.SI.Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket:      &config.SI.Bucket,
-					Key:         &projectKey,
+					Key:         &remoteKey,
 					ContentType: &contentType,
 					Expires:     &expiresAt,
 				})
@@ -119,7 +119,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 					// Generate presigned URL
 					res, err := client.PresignUploadPart(ctx, &s3.UploadPartInput{
 						Bucket:        &config.SI.Bucket,
-						Key:           &projectKey,
+						Key:           &remoteKey,
 						UploadId:      multipartRes.UploadId,
 						PartNumber:    partNum,
 						ContentLength: currentSize,
@@ -139,7 +139,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 				// Single upload
 				res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
 					Bucket: &config.SI.Bucket,
-					Key:    &projectKey,
+					Key:    &remoteKey,
 				})
 				if err != nil {
 					panic(err)
@@ -151,7 +151,7 @@ func PresignMany(fctx *fiber.Ctx, ctx context.Context, params PresignManyParams)
 			// GET
 			res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
 				Bucket: &config.SI.Bucket,
-				Key:    &projectKey,
+				Key:    &remoteKey,
 			})
 			if err != nil {
 				panic(err)
@@ -201,7 +201,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 		return models.PresignOneResponse{}, err
 	}
 
-	projectKey := fmt.Sprintf("%s/%s", pid, params.Key)
+	remoteKey := fmt.Sprintf("%s/%s", pid, params.Key)
 	var uploadId string
 	urls := []string{}
 
@@ -209,11 +209,13 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 		// PUT
 		if params.Multipart {
 			// Multipart upload
-			contentType := params.ContentType
+			// TODO: Uncomment below line (binary file are getting incorrect MIME type)
+			// contentType := params.ContentType
+			contentType := "application/octet-stream"
 			expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
 			multipartRes, err := config.SI.Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 				Bucket:      &config.SI.Bucket,
-				Key:         &projectKey,
+				Key:         &remoteKey,
 				ContentType: &contentType,
 				Expires:     &expiresAt,
 			})
@@ -222,6 +224,11 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 			}
 
 			uploadId = *multipartRes.UploadId
+
+			// DEBUG
+			fmt.Printf("%s -> %s\n", remoteKey, *multipartRes.UploadId)
+			fmt.Printf("\tContent type: %s\n", contentType)
+			// ~DEBUG
 
 			// TODO: Generate non-multipart presigned URL if file size is less than multipart upload part size
 			remaining := params.Size
@@ -238,7 +245,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 				// Generate presigned URL
 				res, err := client.PresignUploadPart(ctx, &s3.UploadPartInput{
 					Bucket:        &config.SI.Bucket,
-					Key:           &projectKey,
+					Key:           &remoteKey,
 					UploadId:      multipartRes.UploadId,
 					PartNumber:    partNum,
 					ContentLength: currentSize,
@@ -258,7 +265,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 			// Single upload
 			res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
 				Bucket: &config.SI.Bucket,
-				Key:    &projectKey,
+				Key:    &remoteKey,
 			})
 			if err != nil {
 				panic(err)
@@ -270,7 +277,7 @@ func PresignOne(fctx *fiber.Ctx, ctx context.Context, params PresignOneParams) (
 		// GET
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
 			Bucket: &config.SI.Bucket,
-			Key:    &projectKey,
+			Key:    &remoteKey,
 		})
 		if err != nil {
 			panic(err)
