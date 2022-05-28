@@ -87,7 +87,7 @@ func PresignManyGET(c *fiber.Ctx) error {
 	client := s3.NewPresignClient(config.SI.Client)
 
 	// Generate presigned URLs
-	keyUrlMap := make(map[string][]string)
+	keyUrlMap := make(map[string]string)
 
 	for _, localKey := range body.Keys {
 		remoteKey := fmt.Sprintf("%s/%s", pid, localKey)
@@ -99,7 +99,7 @@ func PresignManyGET(c *fiber.Ctx) error {
 			panic(err)
 		}
 
-		keyUrlMap[localKey] = []string{res.URL}
+		keyUrlMap[localKey] = res.URL
 	}
 
 	return c.JSON(keyUrlMap)
