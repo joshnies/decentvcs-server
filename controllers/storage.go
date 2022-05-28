@@ -330,6 +330,12 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 		}
 	}
 
+	// DEBUG
+	for _, part := range parts {
+		fmt.Printf("Part %d: %s\n", part.PartNumber, *part.ETag)
+	}
+	// ~DEBUG
+
 	// Complete multipart upload
 	key := fmt.Sprintf("%s/%s", pid, body.Key)
 	_, err = config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
