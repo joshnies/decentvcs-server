@@ -259,7 +259,7 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 	}
 
 	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter,
-		options.Find().SetSort(bson.D{{"created_at", 1}}), // ascending
+		options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}}), // ascending
 		options.Find().SetLimit(limit),
 	)
 	if err != nil {
