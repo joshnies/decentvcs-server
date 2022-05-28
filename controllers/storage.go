@@ -270,29 +270,8 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 		}
 	}
 
-	// DEBUG
-	// fmt.Printf("Completing upload with ID: \"%s\"\n", body.UploadId)
-
-	// debugRes, err := config.SI.Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
-	// 	Bucket: &config.SI.Bucket,
-	// })
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"error": "Internal server error",
-	// 	})
-	// }
-
-	// fmt.Printf("[DEBUG] # of multipart uploads: %d\n", len(debugRes.Uploads))
-	// for _, upload := range debugRes.Uploads {
-	// 	fmt.Printf("[DEBUG] Upload: %s\n", *upload.UploadId)
-	// 	fmt.Printf("[DEBUG]\tKey: %s\n", *upload.Key)
-	// 	fmt.Printf("[DEBUG]\tInitiated at: %s\n\n", upload.Initiated.Format("2006-01-02 15:04:05"))
-	// }
-	// ~DEBUG
-
 	// Complete multipart upload
-	key := fmt.Sprintf("%s/%s", project.ID, body.Key)
+	key := fmt.Sprintf("%s/%s", pid, body.Key)
 	_, err = config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &config.SI.Bucket,
 		Key:      &key,
