@@ -5,8 +5,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ~/qc/volumes/db:/data/db
+      - ~/dev/quanta-volumes/db:/data/db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=root
-      - MONGO_INITDB_DATABASE=qc
+      - MONGO_INITDB_DATABASE=quanta

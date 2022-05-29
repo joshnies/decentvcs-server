@@ -1,4 +1,4 @@
-# Quanta Control API
+# Quanta API
 
 ## Requirements
 |Dependency|Version|
@@ -20,7 +20,6 @@ go run main.go
 |POST|`/projects`|Create one project|
 |GET|`/projects/:pid`|Get project by ID|
 |POST|`/projects/:pid`|Update project by ID|
-|GET|`/projects/:pid/access_grant`|Get a project-scoped access grant for Storj|
 |GET|`/projects/:pid/branches`|Get many branches for a project|
 |POST|`/projects/:pid/branches`|Create one branch for a project|
 |GET|`/projects/:pid/branches/default`|Get the default branch of a project|

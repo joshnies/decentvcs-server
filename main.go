@@ -10,9 +10,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/joshnies/qc-api/config"
-	"github.com/joshnies/qc-api/middleware"
-	"github.com/joshnies/qc-api/routes"
+	"github.com/joshnies/quanta-api/config"
+	"github.com/joshnies/quanta-api/middleware"
+	"github.com/joshnies/quanta-api/routes"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
-		AppName: "Quanta Control API v0.1.0",
+		AppName: "Quanta API v0.1.0",
 	})
 
 	// Use middleware

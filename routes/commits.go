@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/qc-api/controllers"
+	"github.com/joshnies/quanta-api/controllers"
 )
 
 func RouteCommits(router fiber.Router) {

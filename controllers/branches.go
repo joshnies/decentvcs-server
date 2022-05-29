@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/qc-api/config"
-	"github.com/joshnies/qc-api/models"
+	"github.com/joshnies/quanta-api/config"
+	"github.com/joshnies/quanta-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
