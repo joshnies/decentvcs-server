@@ -413,6 +413,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
+				"project_id": projectObjId,
 				"deleted_at": bson.M{"$exists": false},
 			},
 		},
