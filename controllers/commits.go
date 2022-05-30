@@ -390,7 +390,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	// TODO: Validate file paths
 
 	// Create project ObjectID
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	projectObjId, err := primitive.ObjectIDFromHex(c.Params("pid"))
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -400,7 +400,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Create branch ObjectID
-	branchId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
+	branchObjId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -413,7 +413,6 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"_id":        branchId,
 				"deleted_at": bson.M{"$exists": false},
 			},
 		},
@@ -431,6 +430,14 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		{
 			"$unset": "commit_id",
 		},
+		{
+			"$sort": bson.M{
+				"commit.index": -1,
+			},
+		},
+		{
+			"$limit": 1,
+		},
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -440,7 +447,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 	defer cur.Close(ctx)
 
-	// Iterate over the results and decode into slice of Branches
+	// Decode first branch
 	cur.Next(ctx)
 	var branchWithLastCommit models.BranchWithCommit
 	err = cur.Decode(&branchWithLastCommit)
@@ -456,8 +463,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		ID:            primitive.NewObjectID(),
 		CreatedAt:     time.Now().Unix(),
 		Index:         branchWithLastCommit.Commit.Index + 1,
-		ProjectID:     projectId,
-		BranchID:      branchId,
+		ProjectID:     projectObjId,
+		BranchID:      branchObjId,
 		Message:       reqBody.Message,
 		CreatedFiles:  reqBody.CreatedFiles,
 		ModifiedFiles: reqBody.ModifiedFiles,
@@ -477,7 +484,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Update branch to point to new commit
-	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branchId}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
+	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branchObjId}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
 	if err != nil {
 		fmt.Println("Failed to update branch.")
 		fmt.Println(err)
