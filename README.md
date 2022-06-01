@@ -1,4 +1,5 @@
-# Quanta API
+# Decent VCS API
+REST API for DecentVCS.
 
 ## Requirements
 |Dependency|Version|
