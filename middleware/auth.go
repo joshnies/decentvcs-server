@@ -9,7 +9,7 @@ import (
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
-	"github.com/joshnies/quanta-api/config"
+	"github.com/joshnies/decent-vcs-api/config"
 )
 
 type CustomClaims struct {

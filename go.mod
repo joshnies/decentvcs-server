@@ -1,4 +1,4 @@
-module github.com/joshnies/quanta-api
+module github.com/joshnies/decent-vcs-api
 
 go 1.18
 

@@ -10,9 +10,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/joshnies/quanta-api/config"
-	"github.com/joshnies/quanta-api/middleware"
-	"github.com/joshnies/quanta-api/routes"
+	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/middleware"
+	"github.com/joshnies/decent-vcs-api/routes"
 )
 
 func main() {

@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/quanta-api/controllers"
+	"github.com/joshnies/decent-vcs-api/controllers"
 )
 
 func RouteStorage(router fiber.Router) {
