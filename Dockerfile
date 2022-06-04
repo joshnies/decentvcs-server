@@ -1,9 +1,9 @@
-FROM alpine:3.16
-# WORKDIR /usr/app
+FROM golang:1.18-alpine
+WORKDIR /app
 
 # Build and install decent-vcs-api
+COPY . .
 RUN go build
-COPY ./decent-vcs-api ./
 
 # Install Doppler CLI
 RUN wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' -O /etc/apk/keys/cli@doppler-8004D9FF50437357.rsa.pub && \
