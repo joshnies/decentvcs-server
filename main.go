@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/gofiber/adaptor/v2"
@@ -20,10 +19,9 @@ func main() {
 	defer cancel()
 
 	// Load environment variables
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// NOTE: We're ignoring errors here because we don't care if the .env file doesn't exist.
+	// Decent uses a "bring your own environment" approach.
+	godotenv.Load()
 
 	// Initialize stuff
 	config.InitConfig()
