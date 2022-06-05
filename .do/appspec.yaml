@@ -3,7 +3,7 @@ features:
 name: decent-vcs-api-dev
 region: nyc
 services:
-  - name: decent-vcs-api
+  - name: decent-vcs-api-v1
     envs:
       - key: DOPPLER_TOKEN
         scope: RUN_AND_BUILD_TIME
@@ -17,5 +17,5 @@ services:
     instance_count: 1
     instance_size_slug: basic-xxs
     routes:
-      - path: /
+      - path: /v1
     source_dir: /
