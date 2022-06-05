@@ -14,8 +14,6 @@ services:
       deploy_on_push: true
       repo: joshnies/decent-vcs-api
     dockerfile_path: Dockerfile
-    # http_port: 8080
-    # run_command: bin/decent-vcs-api
     instance_count: 1
     instance_size_slug: basic-xxs
     routes:
