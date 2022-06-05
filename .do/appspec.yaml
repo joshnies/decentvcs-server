@@ -1,0 +1,23 @@
+features:
+  - enable-kata-build
+name: decent-vcs-api-dev
+region: nyc
+services:
+  - name: decent-vcs-api
+    envs:
+      - key: DOPPLER_TOKEN
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: EV[1:js6I8mTKAqBqKYZGpRCvweoOP59AIjMF:dt2seyPsUGdUszvCZOCYQv4cqaTyRrawyKAOouaWzvBusZOKhe+tEDq4HGLq493/+Pv1JQRGOKCzkWtGzwPj1XK+LAZO]
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: joshnies/decent-vcs-api
+    dockerfile_path: Dockerfile
+    # http_port: 8080
+    # run_command: bin/decent-vcs-api
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    source_dir: /
