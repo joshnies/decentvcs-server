@@ -13,7 +13,7 @@ services:
       branch: main
       deploy_on_push: true
       repo: joshnies/decent-vcs-api
-    dockerfile_path: Dockerfile
+    dockerfile_path: doppler.dockerfile
     instance_count: 1
     instance_size_slug: basic-xxs
     routes:
