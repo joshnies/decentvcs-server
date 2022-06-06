@@ -21,7 +21,13 @@ We recommend using [Doppler](https://doppler.com) in deployed environments for e
 ## Running (local development)
 
 ```sh
+# With dotenv
 go run main.go
+
+# With doppler
+./run
+# or
+doppler run -- go run main.go
 ```
 
 ## Build
@@ -34,7 +40,7 @@ go install
 You can then run the built executable by running:
 
 ```sh
-quanta-api
+decent-vcs-api
 ```
 
 ## Routes

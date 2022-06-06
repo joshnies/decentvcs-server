@@ -30,7 +30,7 @@ func main() {
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
-		AppName: "Quanta API v0.1.0",
+		AppName: "DecentVCS API v0.1.0",
 	})
 
 	// Use middleware
