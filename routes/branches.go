@@ -10,6 +10,7 @@ func RouteBranches(router fiber.Router) {
 	router.Post("/", controllers.CreateBranch)
 	router.Get("/default", controllers.GetDefaultBranch)
 	router.Get("/:bid", controllers.GetOneBranch)
+	router.Post("/:bid", controllers.UpdateOneBranch)
 	router.Delete("/:bid", controllers.DeleteOneBranch)
 	router.Get("/:bid/commits", controllers.GetManyCommitsForBranch)
 }

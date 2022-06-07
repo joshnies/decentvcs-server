@@ -355,6 +355,78 @@ func CreateBranch(c *fiber.Ctx) error {
 	return c.JSON(branch)
 }
 
+// Update a branch.
+//
+// URL params:
+//
+// - pid: Project ID
+//
+// - bid: Branch ID
+//
+// Request body:
+//
+// - name: Branch name
+//
+func UpdateOneBranch(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// TODO: Make sure user has access to project
+
+	// Get URL params
+	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	filter := bson.M{"project_id": projectId}
+
+	bid := c.Params("bid")
+	if primitive.IsValidObjectID(bid) {
+		// Update by ID
+		objId, err := primitive.ObjectIDFromHex(bid)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "Invalid branch ID",
+			})
+		}
+		filter["_id"] = objId
+	} else {
+		// Update by name
+		filter["name"] = bid
+	}
+
+	// Parse body
+	var body models.BranchUpdateDTO
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// Update branch
+	fmt.Printf("Filter: %+v\n", filter)
+	_, err = config.MI.DB.Collection("branches").UpdateOne(
+		ctx,
+		filter,
+		bson.M{"$set": bson.M{"name": body.Name}},
+	)
+	if err != nil {
+		fmt.Println("Error updating branch:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Branch updated",
+	})
+}
+
 // Soft-delete one branch.
 func DeleteOneBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -430,5 +502,3 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 		"message": "Branch deleted",
 	})
 }
-
-// TODO: Add update route

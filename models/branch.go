@@ -9,7 +9,6 @@ type Branch struct {
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id" validate:"required"`
 	CommitID  primitive.ObjectID `json:"commit_id" bson:"commit_id" validate:"required"`
 	DeletedAt int64              `json:"deleted_at" bson:"deleted_at"`
-	// TODO: Add author ID
 }
 
 type BranchWithCommit struct {
@@ -19,7 +18,6 @@ type BranchWithCommit struct {
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id"`
 	Commit    Commit             `json:"commit" bson:"commit"`
 	DeletedAt int64              `json:"deleted_at" bson:"deleted_at"`
-	// TODO: Add author ID
 }
 
 type BranchCreateDTO struct {
@@ -34,5 +32,8 @@ type BranchCreateBSON struct {
 	Name      string             `json:"name" bson:"name" validate:"required"`
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id" validate:"required"`
 	CommitID  primitive.ObjectID `json:"commit_id" bson:"commit_id" validate:"required"`
-	// TODO: Add author ID
+}
+
+type BranchUpdateDTO struct {
+	Name string `json:"name,omitempty"`
 }
