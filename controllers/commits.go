@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,8 +32,37 @@ import (
 // - limit: number of commits to return
 //
 func GetManyCommits(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Get project ID
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
 
 	// Get limit query param
 	limitStr := c.Query("limit")
@@ -44,21 +74,14 @@ func GetManyCommits(c *fiber.Ctx) error {
 		limit = 10
 	}
 
-	// Get project ID
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
 	// Get compared commit ID as string
 	comparedCommitIdStr := c.Query("before")
 	if comparedCommitIdStr == "" {
 		comparedCommitIdStr = c.Query("after")
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// If "before" or "after" query param set, get it from database
 	var comparedCommit models.Commit
@@ -176,26 +199,35 @@ func GetManyCommits(c *fiber.Ctx) error {
 // - limit: number of commits to return
 //
 func GetManyCommitsForBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get limit query param
-	limitStr := c.Query("limit")
-	if limitStr == "" {
-		limitStr = "10"
-	}
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
-	if err != nil || limit <= 0 {
-		limit = 10
-	}
-
 	// Get project ID
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -209,11 +241,24 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get limit query param
+	limitStr := c.Query("limit")
+	if limitStr == "" {
+		limitStr = "10"
+	}
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
 	// Get compared commit ID as string
 	comparedCommitIdStr := c.Query("before")
 	if comparedCommitIdStr == "" {
 		comparedCommitIdStr = c.Query("after")
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// If "before" or "after" query param set, get it from database
 	var comparedCommit models.Commit
@@ -290,16 +335,35 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 
 // Get one commit by index.
 func GetOneCommitByIndex(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Get query params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -313,6 +377,9 @@ func GetOneCommitByIndex(c *fiber.Ctx) error {
 	}
 
 	// Get commit from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var result models.Commit
 	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": idx}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
@@ -332,15 +399,47 @@ func GetOneCommitByIndex(c *fiber.Ctx) error {
 
 // Get one commit by ID.
 func GetOneCommitByID(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Get project ID
+	pid := c.Params("pid")
+	_, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
 
 	// Get query params
 	objId, _ := primitive.ObjectIDFromHex(c.Params("cid"))
 
 	// Get commit from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var result models.Commit
-	err := config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
@@ -358,12 +457,34 @@ func GetOneCommitByID(c *fiber.Ctx) error {
 
 // Create a new commit.
 func CreateOneCommit(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Create project ObjectID
+	pid := c.Params("pid")
+	projectObjId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID; must be an ObjectID hexadecimal",
+		})
+	}
 
 	// Get user ID
 	userId, err := auth.GetUserID(c)
 	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
@@ -387,18 +508,6 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Validate file paths
-
-	// Create project ObjectID
-	projectObjId, err := primitive.ObjectIDFromHex(c.Params("pid"))
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID; must be an ObjectID hexadecimal",
-		})
-	}
-
 	// Create branch ObjectID
 	branchObjId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
 	if err != nil {
@@ -410,6 +519,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
@@ -499,8 +610,38 @@ func CreateOneCommit(c *fiber.Ctx) error {
 
 // Update one commit.
 func UpdateOneCommit(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Get project ID
+	pid := c.Params("pid")
+	_, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID; must be an ObjectID hexadecimal",
+		})
+	}
+
+	// Get user ID
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
 
 	// Parse request body
 	var commit models.Commit
@@ -523,6 +664,8 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Update commit in database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	_, err = config.MI.DB.Collection("commits").UpdateOne(ctx, bson.M{"_id": commitId}, bson.M{"$set": commit})
 	if err != nil {
 		fmt.Println(err)
@@ -534,5 +677,3 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 	commit.ID = commitId
 	return c.JSON(commit)
 }
-
-// TODO: Add delete route
