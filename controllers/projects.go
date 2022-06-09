@@ -345,7 +345,8 @@ func DeleteOneProject(c *fiber.Ctx) error {
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid pid",
+			"error":   "Bad request",
+			"message": "Invalid project ID",
 		})
 	}
 
@@ -394,4 +395,69 @@ func DeleteOneProject(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Project deleted",
 	})
+}
+
+// Invite many users to a project.
+func InviteManyUsers(c *fiber.Ctx) error {
+	// Validate project
+	pid := c.Params("pid")
+	_, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Parse request body
+	var body models.InviteManyUsersDTO
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// TODO: Validate emails in request body
+
+	// Invite new users and add permission for existing users
+	httpClient := &http.Client{}
+	for _, email := range body.Emails {
+		req, _ := http.NewRequest(
+			"GET",
+			fmt.Sprintf("https://%s/api/v2/users?search_engine=v3&include_fields=true&q=email:%s", config.I.Auth0.Domain, email),
+			nil,
+		)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+
+		res, err := httpClient.Do(req)
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+		if res.StatusCode != 200 {
+			fmt.Printf("Received status code %d from Auth0 while searching for user with email \"%s\"\n", res.StatusCode, email)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		var user []map[string]any
+		err = json.NewDecoder(res.Body).Decode(&user)
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		if len(user) == 0 {
+			// TODO: User doesn't exist in system yet, invite them
+		} else {
+			// TODO: Add permission for existing user (first from response, there technically should never be more than one)
+		}
+	}
+
+	return nil
 }

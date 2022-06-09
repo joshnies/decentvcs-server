@@ -9,3 +9,7 @@ type Project struct {
 	Name            string             `json:"name" bson:"name" validate:"required"`
 	DefaultBranchID primitive.ObjectID `json:"default_branch_id,omitempty" bson:"default_branch_id,omitempty"`
 }
+
+type InviteManyUsersDTO struct {
+	Emails []string `json:"emails"`
+}
