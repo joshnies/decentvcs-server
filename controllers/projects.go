@@ -1,10 +1,14 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
 	"time"
 
+	"github.com/go-jose/go-jose/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
@@ -205,7 +209,38 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Add `owner` permission to user in Auth0
+	// Add `owner` permission to user `app_metadata` in Auth0
+	httpClient := &http.Client{}
+	reqBody, _ := json.Marshal(map[string]any{
+		"app_metadata": map[string]any{
+			fmt.Sprintf("permission:%s:owner", project.ID.Hex()): true,
+		},
+	})
+	req, _ := http.NewRequest(
+		"PATCH",
+		fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, sub),
+		bytes.NewBuffer(reqBody),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+	res, err := httpClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if res.StatusCode != 200 {
+		fmt.Printf("Error status code recieved from Auth0 while adding user permission: %d\n", res.StatusCode)
+
+		// Dump response
+		dump, _ := httputil.DumpResponse(res, true)
+		fmt.Println(string(dump))
+
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
 
 	return c.JSON(fiber.Map{
 		"_id":  project.ID.Hex(),
