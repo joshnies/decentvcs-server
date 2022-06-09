@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.4
 	github.com/aws/aws-sdk-go-v2/config v1.15.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.10
+	github.com/go-co-op/gocron v1.13.0
 	github.com/go-jose/go-jose v2.5.1+incompatible
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/gofiber/adaptor/v2 v2.1.23
@@ -31,7 +32,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
-	github.com/go-co-op/gocron v1.13.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
