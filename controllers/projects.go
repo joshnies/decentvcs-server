@@ -205,6 +205,8 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// TODO: Add `owner` permission to user in Auth0
+
 	return c.JSON(fiber.Map{
 		"_id":  project.ID.Hex(),
 		"name": project.Name,

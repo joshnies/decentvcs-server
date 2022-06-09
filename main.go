@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/middleware"
 	"github.com/joshnies/decent-vcs-api/routes"
 )
@@ -27,6 +28,9 @@ func main() {
 	config.InitConfig()
 	config.InitDatabase()
 	config.InitStorage()
+
+	// Fetch initial Auth0 management API access token
+	auth.UpdateAuth0ManagementToken()
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{

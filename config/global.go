@@ -1,21 +1,32 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"time"
+
+	"github.com/go-co-op/gocron"
 )
 
 type Auth0Config struct {
-	Domain    string
-	Audience  string
-	IssuerURL *url.URL
+	ClientID     string
+	ClientSecret string
+	Domain       string
+	Audience     string
+	IssuerURL    *url.URL
+	// Management API access token
+	ManagementToken string
+	// Management API audience
+	ManagementAudience string
 }
 
 type Config struct {
-	Debug bool
-	Port  string
-	Auth0 Auth0Config
+	Debug     bool
+	Port      string
+	Scheduler *gocron.Scheduler
+	Auth0     Auth0Config
 }
 
 // Global config instance
@@ -32,6 +43,16 @@ func getPort() string {
 // Initialize global config instance
 // NOTE: This should only ever be called once (at the start of the app)
 func InitConfig() {
+	auth0ClientID := os.Getenv("AUTH0_CLIENT_ID")
+	if auth0ClientID == "" {
+		panic("AUTH0_CLIENT_ID environment variable not set")
+	}
+
+	auth0ClientSecret := os.Getenv("AUTH0_CLIENT_SECRET")
+	if auth0ClientSecret == "" {
+		panic("AUTH0_CLIENT_SECRET environment variable not set")
+	}
+
 	auth0Domain := os.Getenv("AUTH0_DOMAIN")
 	if auth0Domain == "" {
 		panic("AUTH0_DOMAIN environment variable not set")
@@ -48,12 +69,16 @@ func InitConfig() {
 	}
 
 	I = Config{
-		Debug: os.Getenv("DEBUG") == "1",
-		Port:  getPort(),
+		Debug:     os.Getenv("DEBUG") == "1",
+		Port:      getPort(),
+		Scheduler: gocron.NewScheduler(time.UTC),
 		Auth0: Auth0Config{
-			Domain:    auth0Domain,
-			Audience:  auth0Audience,
-			IssuerURL: auth0IssuerURL,
+			ClientID:           auth0ClientID,
+			ClientSecret:       auth0ClientSecret,
+			Domain:             auth0Domain,
+			Audience:           auth0Audience,
+			IssuerURL:          auth0IssuerURL,
+			ManagementAudience: fmt.Sprintf("https://%s/api/v2/", auth0Domain),
 		},
 	}
 }
