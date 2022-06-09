@@ -13,4 +13,5 @@ func RouteProjects(router fiber.Router) {
 	router.Get("/:pid", controllers.GetOneProject, middleware.HasProjectAccess)
 	router.Post("/:pid", controllers.UpdateOneProject, middleware.HasProjectAccess)
 	router.Delete("/:pid", controllers.DeleteOneProject, middleware.HasProjectAccessWithRole(acl.RoleOwner))
+	router.Post("/:pid/invite", controllers.InviteManyUsers, middleware.HasProjectAccessWithRole(acl.RoleAdmin))
 }

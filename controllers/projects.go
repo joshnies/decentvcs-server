@@ -15,6 +15,7 @@ import (
 	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
+	"github.com/sethvargo/go-password/password"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -471,9 +472,17 @@ func InviteManyUsers(c *fiber.Ctx) error {
 
 		if len(users) == 0 {
 			// User doesn't exist in system yet, invite them
+			pwd, err := password.Generate(32, 5, 5, false, false)
+			if err != nil {
+				fmt.Println(err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
 			body, _ := json.Marshal(map[string]any{
 				"connection": "Username-Password-Authentication",
 				"email":      email,
+				"password":   pwd, // use random password, user will need to reset via invite email
 				"app_metadata": map[string]any{
 					fmt.Sprintf("permission:%s:collab", pid): true,
 				},
@@ -494,6 +503,11 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			}
 			if res.StatusCode != 201 {
 				fmt.Printf("Received status code %d from Auth0 while inviting user with email \"%s\"\n", res.StatusCode, email)
+
+				// Dump response
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(string(dump))
+
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
@@ -522,6 +536,11 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			}
 			if res.StatusCode != 200 {
 				fmt.Printf("Received status code %d from Auth0 while adding permission for user with email \"%s\"\n", res.StatusCode, email)
+
+				// Dump response
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(string(dump))
+
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
