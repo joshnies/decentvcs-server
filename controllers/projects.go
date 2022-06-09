@@ -304,24 +304,6 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get project to make sure user is owner
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var project models.Project
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"owner_id": userId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
 	updateData := bson.M{}
 	if body.OwnerID != "" {
 		updateData["owner_id"] = body.OwnerID
@@ -334,6 +316,8 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 
 	// Update project
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	_, err = config.MI.DB.Collection("projects").UpdateOne(
 		ctx,
 		bson.M{"_id": projectObjectId},
