@@ -526,6 +526,8 @@ func InviteManyUsers(c *fiber.Ctx) error {
 					"error": "Internal server error",
 				})
 			}
+
+			// TODO: Send existing user an email notifying them of their new permission
 		}
 	}
 
