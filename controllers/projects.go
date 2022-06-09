@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"net/mail"
 	"time"
 
 	"github.com/go-jose/go-jose/json"
@@ -417,7 +418,23 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Validate emails in request body
+	// Limit email count to prevent request timeouts
+	if len(body.Emails) > config.I.MaxInviteCount {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": fmt.Sprintf("Too many emails; limit: %d", config.I.MaxInviteCount),
+		})
+	}
+
+	// Validate emails in request body
+	for _, email := range body.Emails {
+		if _, err := mail.ParseAddress(email); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": fmt.Sprintf("Invalid email: %s", email),
+			})
+		}
+	}
 
 	// Invite new users and add permission for existing users
 	httpClient := &http.Client{}
@@ -443,8 +460,8 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			})
 		}
 
-		var user []map[string]any
-		err = json.NewDecoder(res.Body).Decode(&user)
+		var users []map[string]any
+		err = json.NewDecoder(res.Body).Decode(&users)
 		if err != nil {
 			fmt.Println(err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -452,10 +469,63 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			})
 		}
 
-		if len(user) == 0 {
-			// TODO: User doesn't exist in system yet, invite them
+		if len(users) == 0 {
+			// User doesn't exist in system yet, invite them
+			body, _ := json.Marshal(map[string]any{
+				"connection": "Username-Password-Authentication",
+				"email":      email,
+				"app_metadata": map[string]any{
+					fmt.Sprintf("permission:%s:collab", pid): true,
+				},
+			})
+			req, _ := http.NewRequest(
+				"POST",
+				fmt.Sprintf("https://%s/api/v2/users", config.I.Auth0.Domain),
+				bytes.NewBuffer(body),
+			)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+			req.Header.Add("Content-Type", "application/json")
+			res, err := httpClient.Do(req)
+			if err != nil {
+				fmt.Println(err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+			if res.StatusCode != 201 {
+				fmt.Printf("Received status code %d from Auth0 while inviting user with email \"%s\"\n", res.StatusCode, email)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
 		} else {
-			// TODO: Add permission for existing user (first from response, there technically should never be more than one)
+			// Add permission for existing user
+			user := users[0]
+			body, _ := json.Marshal(map[string]any{
+				"app_metadata": map[string]any{
+					fmt.Sprintf("permission:%s:collab", pid): true,
+				},
+			})
+			req, _ := http.NewRequest(
+				"PATCH",
+				fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, user["user_id"]),
+				bytes.NewBuffer(body),
+			)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+			req.Header.Add("Content-Type", "application/json")
+			res, err := httpClient.Do(req)
+			if err != nil {
+				fmt.Println(err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+			if res.StatusCode != 200 {
+				fmt.Printf("Received status code %d from Auth0 while adding permission for user with email \"%s\"\n", res.StatusCode, email)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
 		}
 	}
 

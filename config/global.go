@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -23,10 +24,11 @@ type Auth0Config struct {
 }
 
 type Config struct {
-	Debug     bool
-	Port      string
-	Scheduler *gocron.Scheduler
-	Auth0     Auth0Config
+	Debug          bool
+	Port           string
+	Scheduler      *gocron.Scheduler
+	MaxInviteCount int
+	Auth0          Auth0Config
 }
 
 // Global config instance
@@ -43,6 +45,20 @@ func getPort() string {
 // Initialize global config instance
 // NOTE: This should only ever be called once (at the start of the app)
 func InitConfig() {
+	// Global
+	maxInviteCountStr := os.Getenv("MAX_INVITE_COUNT")
+	if maxInviteCountStr == "" {
+		maxInviteCountStr = "10"
+	}
+	maxInviteCount, err := strconv.Atoi(maxInviteCountStr)
+	if err != nil {
+		log.Fatal("MAX_INVITE_COUNT must be an integer")
+	}
+	if maxInviteCount <= 0 {
+		log.Fatal("MAX_INVITE_COUNT must be greater than 0")
+	}
+
+	// Auth0
 	auth0ClientID := os.Getenv("AUTH0_CLIENT_ID")
 	if auth0ClientID == "" {
 		panic("AUTH0_CLIENT_ID environment variable not set")
@@ -69,9 +85,10 @@ func InitConfig() {
 	}
 
 	I = Config{
-		Debug:     os.Getenv("DEBUG") == "1",
-		Port:      getPort(),
-		Scheduler: gocron.NewScheduler(time.UTC),
+		Debug:          os.Getenv("DEBUG") == "1",
+		Port:           getPort(),
+		Scheduler:      gocron.NewScheduler(time.UTC),
+		MaxInviteCount: maxInviteCount,
 		Auth0: Auth0Config{
 			ClientID:           auth0ClientID,
 			ClientSecret:       auth0ClientSecret,
