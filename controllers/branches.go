@@ -8,6 +8,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/lib/acl"
+	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,12 +22,34 @@ func GetManyBranches(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get project ID
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -96,7 +120,8 @@ func GetOneBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get URL params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -109,6 +134,27 @@ func GetOneBranch(c *fiber.Ctx) error {
 	objId, err := primitive.ObjectIDFromHex(bid)
 	if err != nil {
 		filterName = bid
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
 	}
 
 	// Build mongo aggregation pipeline
@@ -180,11 +226,33 @@ func GetDefaultBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get URL params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -274,11 +342,33 @@ func CreateBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get URL params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -371,14 +461,34 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// TODO: Make sure user has access to project
-
 	// Get URL params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -433,11 +543,33 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Get URL params
-	projectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
