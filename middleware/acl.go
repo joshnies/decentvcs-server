@@ -20,7 +20,6 @@ func HasProjectAccess(c *fiber.Ctx) error {
 	pid := c.Params("pid")
 	_, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
-		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID; must be an ObjectID hexadecimal",

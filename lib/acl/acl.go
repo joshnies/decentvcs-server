@@ -47,13 +47,18 @@ func GetRoleFromName(roleName string) (Role, error) {
 func HasProjectAccess(userID string, projectID string) (bool, error) {
 	// Get user from Auth0
 	httpClient := &http.Client{}
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v2/%s", config.I.Auth0.Domain, userID), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
 	res, err := httpClient.Do(req)
 	if err != nil {
 		return false, err
 	}
 	defer res.Body.Close()
+
+	// Check status code
+	if res.StatusCode != 200 {
+		return false, fmt.Errorf("received error status from Auth0: %s", res.Status)
+	}
 
 	// Parse body
 	var user map[string]any
@@ -63,7 +68,7 @@ func HasProjectAccess(userID string, projectID string) (bool, error) {
 	}
 
 	// Check if user has access to project
-	for k := range user["user_metadata"].(map[string]any) {
+	for k := range user["app_metadata"].(map[string]any) {
 		if strings.HasPrefix(k, fmt.Sprintf("permission:%s:", projectID)) {
 			return true, nil
 		}
@@ -77,7 +82,7 @@ func HasProjectAccess(userID string, projectID string) (bool, error) {
 func GetProjectRole(userID string, projectID string) (Role, error) {
 	// Get user from Auth0
 	httpClient := &http.Client{}
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v2/%s", config.I.Auth0.Domain, userID), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
 	res, err := httpClient.Do(req)
 	if err != nil {
