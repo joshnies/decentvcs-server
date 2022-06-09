@@ -10,8 +10,6 @@ import (
 	awstypes "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
-	"github.com/joshnies/decent-vcs-api/lib/acl"
-	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -50,34 +48,12 @@ func PresignManyGET(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get user ID
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	// Check if user has access to project
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Project not found",
@@ -143,14 +119,6 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get user ID
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
@@ -161,26 +129,12 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Project not found",
@@ -306,14 +260,6 @@ func PresignOne(c *fiber.Ctx) error {
 // Complete an S3 multipart upload.
 // Multipart uploads can be started by generating presigned URLs.
 func CompleteMultipartUpload(c *fiber.Ctx) error {
-	// Get user ID
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
@@ -324,26 +270,12 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Project not found",
@@ -399,14 +331,6 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 // Abort an S3 multipart upload.
 // Multipart uploads can be started by generating presigned URLs.
 func AbortMultipartUpload(c *fiber.Ctx) error {
-	// Get user ID
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
@@ -417,26 +341,12 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId, "owner_id": userId}).Decode(&project)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Project not found",

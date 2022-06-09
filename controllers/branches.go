@@ -8,8 +8,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
-	"github.com/joshnies/decent-vcs-api/lib/acl"
-	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -18,9 +16,6 @@ import (
 
 // Get many branches.
 func GetManyBranches(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Get project ID
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
@@ -29,27 +24,6 @@ func GetManyBranches(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
-		})
-	}
-
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
 		})
 	}
 
@@ -79,6 +53,9 @@ func GetManyBranches(c *fiber.Ctx) error {
 	}
 
 	// Get branches from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
 	if err != nil {
 		fmt.Println(err)
@@ -116,9 +93,6 @@ func GetManyBranches(c *fiber.Ctx) error {
 //
 // - join_commit: Whether to join commit to branch.
 func GetOneBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Get URL params
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
@@ -134,27 +108,6 @@ func GetOneBranch(c *fiber.Ctx) error {
 	objId, err := primitive.ObjectIDFromHex(bid)
 	if err != nil {
 		filterName = bid
-	}
-
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
 	}
 
 	// Build mongo aggregation pipeline
@@ -189,6 +142,8 @@ func GetOneBranch(c *fiber.Ctx) error {
 	}
 
 	// Get branch from database, including commit it currently points to
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, pipeline)
 	if err != nil {
 		fmt.Println("Error getting branch:", err)
@@ -222,10 +177,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 //
 // - join_commit: Whether to join commit to branch.
 func GetDefaultBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get URL params
+	// Get project ID
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
@@ -235,28 +187,10 @@ func GetDefaultBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get project
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var project models.Project
 	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectId}).Decode(&project)
 	if err != nil {
@@ -338,37 +272,13 @@ func GetDefaultBranch(c *fiber.Ctx) error {
 // - commit_index: Index of the commit this branch points to
 //
 func CreateBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get URL params
+	// Get project ID
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
-		})
-	}
-
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
 		})
 	}
 
@@ -388,6 +298,9 @@ func CreateBranch(c *fiber.Ctx) error {
 	}
 
 	// Get commit by index
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var commit models.Commit
 	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": body.CommitIndex}).Decode(&commit)
 	if err == mongo.ErrNoDocuments {
@@ -458,10 +371,7 @@ func CreateBranch(c *fiber.Ctx) error {
 // - name: Branch name
 //
 func UpdateOneBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get URL params
+	// Get project ID
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
@@ -471,29 +381,10 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
+	// Create base bson filter
 	filter := bson.M{"project_id": projectId}
 
+	// Get branch ID
 	bid := c.Params("bid")
 	if primitive.IsValidObjectID(bid) {
 		// Update by ID
@@ -519,7 +410,8 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 	}
 
 	// Update branch
-	fmt.Printf("Filter: %+v\n", filter)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	_, err = config.MI.DB.Collection("branches").UpdateOne(
 		ctx,
 		filter,
@@ -539,10 +431,7 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 
 // Soft-delete one branch.
 func DeleteOneBranch(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get URL params
+	// Get project ID
 	pid := c.Params("pid")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
@@ -552,28 +441,10 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
 	// Get all branches for project
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var branches []models.Branch
 	cur, err := config.MI.DB.Collection("branches").Find(ctx, bson.M{"project_id": projectId})
 	if err != nil {

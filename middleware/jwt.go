@@ -22,7 +22,10 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 }
 
 // Middleware that checks for JWT validity
-func EnsureValidToken() func(next http.Handler) http.Handler {
+//
+// NOTE: This is standard http middleware, not fiber middleware due to `jwtmiddleware` limitations
+//
+func ValidateJWT() func(next http.Handler) http.Handler {
 	provider := jwks.NewCachingProvider(config.I.Auth0.IssuerURL, 5*time.Minute)
 
 	jwtValidator, err := validator.New(

@@ -38,7 +38,7 @@ func main() {
 	})
 
 	// Use middleware
-	app.Use(adaptor.HTTPMiddleware(middleware.EnsureValidToken()))
+	app.Use(adaptor.HTTPMiddleware(middleware.ValidateJWT()))
 
 	if config.I.Debug {
 		app.Use(logger.New())

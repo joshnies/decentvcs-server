@@ -9,13 +9,39 @@ import (
 	"github.com/joshnies/decent-vcs-api/config"
 )
 
-type Role string
+type Role int8
 
 const (
-	RoleOwner        Role = "owner"
-	RoleAdmin        Role = "admin"
-	RoleCollaborator Role = "collab"
+	RoleCollaborator Role = iota
+	RoleAdmin
+	RoleOwner
 )
+
+func GetRoleName(role Role) string {
+	switch role {
+	case RoleOwner:
+		return "owner"
+	case RoleAdmin:
+		return "admin"
+	case RoleCollaborator:
+		return "collab"
+	default:
+		return ""
+	}
+}
+
+func GetRoleFromName(roleName string) (Role, error) {
+	switch roleName {
+	case "owner":
+		return RoleOwner, nil
+	case "admin":
+		return RoleAdmin, nil
+	case "collab":
+		return RoleCollaborator, nil
+	default:
+		return -1, fmt.Errorf("invalid role name: %s", roleName)
+	}
+}
 
 // Returns true if user has access to the given project.
 func HasProjectAccess(userID string, projectID string) (bool, error) {
@@ -47,7 +73,7 @@ func HasProjectAccess(userID string, projectID string) (bool, error) {
 }
 
 // Returns user's role, if any, for the given project.
-// If no role is found, returns an empty string.
+// If no role is found, returns -1.
 func GetProjectRole(userID string, projectID string) (Role, error) {
 	// Get user from Auth0
 	httpClient := &http.Client{}
@@ -55,7 +81,7 @@ func GetProjectRole(userID string, projectID string) (Role, error) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 	defer res.Body.Close()
 
@@ -63,7 +89,7 @@ func GetProjectRole(userID string, projectID string) (Role, error) {
 	var user map[string]any
 	err = json.NewDecoder(res.Body).Decode(&user)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 
 	// Check if user has access to project
@@ -71,9 +97,10 @@ func GetProjectRole(userID string, projectID string) (Role, error) {
 		prefix := fmt.Sprintf("permission:%s:", projectID)
 
 		if strings.HasPrefix(k, prefix) {
-			return Role(strings.Replace(k, prefix, "", 1)), nil
+			roleName, _ := GetRoleFromName(strings.Replace(k, prefix, "", 1))
+			return roleName, nil
 		}
 	}
 
-	return "", nil
+	return -1, nil
 }

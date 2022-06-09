@@ -26,34 +26,13 @@ import (
 // - id: Project ID
 //
 func GetOneProject(c *fiber.Ctx) error {
-	// Parse project ID
+	// Get project ID
 	pid := c.Params("pid")
-	objId, err := primitive.ObjectIDFromHex(pid)
+	projectObjId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
-		})
-	}
-
-	// Check if user has access to project
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if !hasAccess {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
 		})
 	}
 
@@ -62,7 +41,7 @@ func GetOneProject(c *fiber.Ctx) error {
 	defer cancel()
 
 	var result models.Project
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
@@ -87,13 +66,13 @@ func GetOneProject(c *fiber.Ctx) error {
 // - pname: Name of the project
 //
 func GetOneProjectByBlob(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// ownerAlias := c.Params("oa")
 	projectName := c.Params("pname")
 
 	// Get project from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var result models.Project
 	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"name": projectName}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
@@ -139,11 +118,8 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 // - name: Project name
 //
 func CreateProject(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get user from context
-	sub, err := auth.GetUserID(c)
+	// Get user ID
+	userID, err := auth.GetUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
@@ -173,12 +149,15 @@ func CreateProject(c *fiber.Ctx) error {
 	project := models.Project{
 		ID:              primitive.NewObjectID(),
 		CreatedAt:       time.Now().Unix(),
-		OwnerID:         sub,
+		OwnerID:         userID,
 		Name:            body.Name,
 		DefaultBranchID: branchId,
 	}
 
 	// Create project in database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	_, err = config.MI.DB.Collection("projects").InsertOne(ctx, project)
 	if err != nil {
 		fmt.Println(err)
@@ -236,7 +215,7 @@ func CreateProject(c *fiber.Ctx) error {
 	})
 	req, _ := http.NewRequest(
 		"PATCH",
-		fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, sub),
+		fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID),
 		bytes.NewBuffer(reqBody),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -286,17 +265,6 @@ func CreateProject(c *fiber.Ctx) error {
 //
 // Returns the updated project.
 func UpdateOneProject(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Parse body
-	var body models.Project
-	if err := c.BodyParser(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Bad request",
-		})
-	}
-
 	// Parse project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
@@ -328,7 +296,18 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Parse body
+	var body models.Project
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
 	// Get project to make sure user is owner
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var project models.Project
 	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"owner_id": userId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
@@ -383,28 +362,6 @@ func DeleteOneProject(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid pid",
-		})
-	}
-
-	// Get user ID
-	userId, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	// Make sure user is the project owner
-	role, err := acl.GetProjectRole(userId, pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if role != acl.RoleOwner {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
 		})
 	}
 
