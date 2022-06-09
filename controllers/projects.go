@@ -11,45 +11,13 @@ import (
 	"github.com/go-jose/go-jose/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
-
-// Get many projects.
-func GetManyProjects(c *fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	var result []models.Project
-	defer cancel()
-
-	// Get projects from database
-	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{})
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Iterate over the results and decode into slice of Projects
-	defer cur.Close(ctx)
-	for cur.Next(ctx) {
-		var decodedProject models.Project
-		err := cur.Decode(&decodedProject)
-		if err != nil {
-			fmt.Println(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		result = append(result, decodedProject)
-	}
-
-	return c.JSON(result)
-}
 
 // Get one project by ID.
 //
@@ -58,14 +26,43 @@ func GetManyProjects(c *fiber.Ctx) error {
 // - id: Project ID
 //
 func GetOneProject(c *fiber.Ctx) error {
+	// Parse project ID
+	pid := c.Params("pid")
+	objId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	objId, _ := primitive.ObjectIDFromHex(c.Params("pid"))
-
-	// Get project from database
 	var result models.Project
-	err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
@@ -108,6 +105,27 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
+		})
+	}
+
+	// Check if user has access to project
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	hasAccess, err := acl.HasProjectAccess(userId, result.ID.Hex())
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -280,7 +298,8 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 
 	// Parse project ID
-	projectObjectId, err := primitive.ObjectIDFromHex(c.Params("pid"))
+	pid := c.Params("pid")
+	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -288,9 +307,22 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// Make sure user is project owner
+	// Make sure user is a project admin
 	userId, err := auth.GetUserID(c)
 	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	role, err := acl.GetProjectRole(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if role != acl.RoleAdmin {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
@@ -345,10 +377,7 @@ func UpdateOneProject(c *fiber.Ctx) error {
 
 // Delete project and all of its subresources.
 func DeleteOneProject(c *fiber.Ctx) error {
-	// TODO: Return unauthorized if user is not logged in
-
 	// Get project
-	// TODO: Add user ID to FindOne filter to prevent users from accessing other projects
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
@@ -357,6 +386,29 @@ func DeleteOneProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get user ID
+	userId, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Make sure user is the project owner
+	role, err := acl.GetProjectRole(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if role != acl.RoleOwner {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Get project
 	project := models.Project{}
 	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": projectObjectId}).Decode(&project)
 	if err == mongo.ErrNoDocuments {
