@@ -10,6 +10,7 @@ import (
 	awstypes "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -39,6 +40,16 @@ const (
 // Returns an array of presigned URLs.
 //
 func PresignManyGET(c *fiber.Ctx) error {
+	// Get project ID
+	pid := c.Params("pid")
+	projectObjectId, err := primitive.ObjectIDFromHex(pid)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
 	// Get user ID
 	userId, err := auth.GetUserID(c)
 	if err != nil {
@@ -47,13 +58,17 @@ func PresignManyGET(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse project ID
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -136,13 +151,27 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse project ID
+	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -285,13 +314,27 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse project ID
+	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
@@ -364,13 +407,27 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse project ID
+	// Get project ID
 	pid := c.Params("pid")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
 			"message": "Invalid project ID",
+		})
+	}
+
+	// Check if user has access to project
+	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
 		})
 	}
 
