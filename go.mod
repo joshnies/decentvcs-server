@@ -13,6 +13,7 @@ require (
 	github.com/gofiber/adaptor/v2 v2.1.23
 	github.com/gofiber/fiber/v2 v2.33.0
 	github.com/joho/godotenv v1.4.0
+	github.com/sethvargo/go-password v0.2.0
 	go.mongodb.org/mongo-driver v1.9.0
 )
 
@@ -41,7 +42,6 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/sethvargo/go-password v0.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.36.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
