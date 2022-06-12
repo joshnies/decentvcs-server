@@ -10,10 +10,12 @@ import (
 )
 
 type SendEmailOptions struct {
-	From    string
-	To      string
-	Subject string
-	Body    string
+	From         string
+	To           string
+	Subject      string
+	Body         string
+	Template     string
+	TemplateVars map[string]any
 }
 
 // Send an email.
@@ -30,14 +32,26 @@ func Send(options SendEmailOptions) error {
 
 func sendMailgun(options SendEmailOptions) error {
 	client := config.EmailClient.Mailgun
-	msg := client.NewMessage(options.From, options.Subject, options.Body, options.To)
+	body := options.Body
+	if options.Template != "" {
+		body = ""
+	}
+
+	msg := client.NewMessage(options.From, options.Subject, body, options.To)
+	if options.Template != "" {
+		msg.SetTemplate(options.Template)
+
+		for k, v := range options.TemplateVars {
+			msg.AddTemplateVariable(k, v)
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	_, _, err := client.Send(ctx, msg)
 	if err != nil {
-		return fmt.Errorf("Error sending email: %s", err.Error())
+		return fmt.Errorf("error sending email: %s", err.Error())
 	}
 
 	return nil
