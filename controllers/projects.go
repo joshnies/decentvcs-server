@@ -554,7 +554,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			body, _ = json.Marshal(map[string]any{
 				"user_id":                fmt.Sprintf("%s|%s", identity.Provider, identity.UserID),
 				"mark_email_as_verified": true,
-				"return_url":             config.I.Auth0.InviteReturnURL,
+				// "return_url":             config.I.Auth0.InviteReturnURL,
 			})
 			req, _ = http.NewRequest(
 				"POST",
