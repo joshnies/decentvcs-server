@@ -21,6 +21,7 @@ type Auth0Config struct {
 	ManagementToken string
 	// Management API audience
 	ManagementAudience string
+	InviteReturnURL    string
 }
 
 type Config struct {

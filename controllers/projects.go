@@ -15,6 +15,7 @@ import (
 	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
 	"github.com/joshnies/decent-vcs-api/models"
+	"github.com/joshnies/decent-vcs-api/models/auth0"
 	"github.com/sethvargo/go-password/password"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -479,10 +480,12 @@ func InviteManyUsers(c *fiber.Ctx) error {
 					"error": "Internal server error",
 				})
 			}
+
 			body, _ := json.Marshal(map[string]any{
-				"connection": "Username-Password-Authentication",
-				"email":      email,
-				"password":   pwd, // use random password, user will need to reset via invite email
+				"connection":   "Username-Password-Authentication",
+				"email":        email,
+				"password":     pwd,   // use random password, user will need to reset via invite email
+				"verify_email": false, // email will be verified via the password change ticket
 				"app_metadata": map[string]any{
 					fmt.Sprintf("permission:%s:collab", pid): true,
 				},
@@ -497,6 +500,11 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			res, err := httpClient.Do(req)
 			if err != nil {
 				fmt.Println(err)
+
+				// Dump response
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(string(dump))
+
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
@@ -512,6 +520,67 @@ func InviteManyUsers(c *fiber.Ctx) error {
 					"error": "Internal server error",
 				})
 			}
+			defer res.Body.Close()
+
+			// Parse body
+			var resBody auth0.CreateUserResponse
+			err = json.NewDecoder(res.Body).Decode(&resBody)
+			if err != nil {
+				fmt.Println(err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create password change ticket in Auth0
+			identity := resBody.Identities[0]
+			body, _ = json.Marshal(map[string]any{
+				"user_id":                fmt.Sprintf("%s|%s", identity.Provider, identity.UserID),
+				"mark_email_as_verified": true,
+				"return_url":             config.I.Auth0.InviteReturnURL,
+			})
+			req, _ = http.NewRequest(
+				"POST",
+				fmt.Sprintf("https://%s/api/v2/tickets/password-change", config.I.Auth0.Domain),
+				bytes.NewBuffer(body),
+			)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+			req.Header.Add("Content-Type", "application/json")
+			res, err = httpClient.Do(req)
+			if err != nil {
+				fmt.Println(err)
+
+				// Dump response
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(string(dump))
+
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+			if res.StatusCode != 201 {
+				fmt.Printf("Received status code %d from Auth0 while creating password change ticket for user with email \"%s\"\n", res.StatusCode, email)
+
+				// Dump response
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(string(dump))
+
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Parse body
+			var ticketRes auth0.CreatePasswordChangeTicketResponse
+			err = json.NewDecoder(res.Body).Decode(&ticketRes)
+			if err != nil {
+				fmt.Println(err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// TODO: Send invite email
 		} else {
 			// Add permission for existing user
 			user := users[0]
