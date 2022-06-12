@@ -454,6 +454,43 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get owner alias (for generating project blob)
+	// TODO: Update when we add support for teams
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v1/users/%s", config.I.Auth0.Domain, project.OwnerID), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("Error getting project owner from Auth0:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if res.StatusCode != 200 {
+		fmt.Println("Error getting project owner from Auth0:", res.StatusCode)
+
+		// Dump response
+		dump, err := httputil.DumpResponse(res, true)
+		if err != nil {
+			fmt.Println("Error dumping response:", err)
+		}
+		fmt.Println(string(dump))
+
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	defer res.Body.Close()
+
+	// Parse response
+	var owner auth0.User
+	if err := json.NewDecoder(res.Body).Decode(&owner); err != nil {
+		fmt.Println("Error parsing response while getting project owner from Auth0:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	// Invite new users and add permission for existing users
 	// TODO: Add progress bar
 	httpClient := &http.Client{}
@@ -478,6 +515,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
+		defer res.Body.Close()
 
 		var users []map[string]any
 		err = json.NewDecoder(res.Body).Decode(&users)
@@ -650,7 +688,25 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				})
 			}
 
-			// TODO: Send existing user an email notifying them of their new permission
+			// Send existing user an email notifying them of their new permission
+			err = emailclient.Send(emailclient.SendEmailOptions{
+				From:     config.EmailClient.FromAddresses.NoReply,
+				To:       []string{email},
+				Subject:  fmt.Sprintf("You've been invited to %s on DecentVCS", project.Name),
+				Template: "invite",
+				TemplateVars: map[string]any{
+					"project": map[string]any{
+						"name": project.Name,
+						"blob": fmt.Sprintf("%s/%s", owner.Username, project.Name),
+					},
+				},
+			})
+			if err != nil {
+				fmt.Printf("Error sending invite email to %s: %s\n", email, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
 		}
 	}
 
