@@ -28,6 +28,7 @@ func main() {
 	config.InitConfig()
 	config.InitDatabase()
 	config.InitStorage()
+	config.InitEmailClient()
 
 	// Fetch initial Auth0 management API access token
 	auth.UpdateAuth0ManagementToken()
