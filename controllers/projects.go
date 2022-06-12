@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/mail"
+	"net/url"
 	"time"
 
 	"github.com/go-jose/go-jose/json"
@@ -456,10 +457,12 @@ func InviteManyUsers(c *fiber.Ctx) error {
 
 	// Get owner alias (for generating project blob)
 	// TODO: Update when we add support for teams
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api/v1/users/%s", config.I.Auth0.Domain, project.OwnerID), nil)
+	httpClient := &http.Client{}
+	reqUrl := fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, url.QueryEscape(project.OwnerID))
+	req, _ := http.NewRequest("GET", reqUrl, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		fmt.Println("Error getting project owner from Auth0:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -493,7 +496,6 @@ func InviteManyUsers(c *fiber.Ctx) error {
 
 	// Invite new users and add permission for existing users
 	// TODO: Add progress bar
-	httpClient := &http.Client{}
 	for _, email := range body.Emails {
 		req, _ := http.NewRequest(
 			"GET",
@@ -542,6 +544,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				"password":     pwd,   // use random password, user will need to reset via invite email
 				"verify_email": false, // email will be verified via the password change ticket
 				"app_metadata": map[string]any{
+					"invited":                                true,
 					fmt.Sprintf("permission:%s:collab", pid): true,
 				},
 			})
