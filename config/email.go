@@ -7,8 +7,13 @@ import (
 	"github.com/mailgun/mailgun-go/v4"
 )
 
+type EmailFromAddresses struct {
+	NoReply string
+}
+
 type EmailClientInstance struct {
-	Mailgun *mailgun.MailgunImpl
+	FromAddresses EmailFromAddresses
+	Mailgun       *mailgun.MailgunImpl
 	// TODO: Integrate SendGrid
 }
 
@@ -29,6 +34,9 @@ func InitEmailClient() {
 
 	// Build and return instance
 	EmailClient = EmailClientInstance{
+		FromAddresses: EmailFromAddresses{
+			NoReply: "no-reply@" + mgDomain,
+		},
 		Mailgun: mailgun.NewMailgun(mgDomain, mgApiKey),
 	}
 }

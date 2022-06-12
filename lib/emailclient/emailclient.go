@@ -1,4 +1,4 @@
-package email
+package emailclient
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 type SendEmailOptions struct {
 	From         string
-	To           string
+	To           []string
 	Subject      string
 	Body         string
 	Template     string
@@ -37,7 +37,7 @@ func sendMailgun(options SendEmailOptions) error {
 		body = ""
 	}
 
-	msg := client.NewMessage(options.From, options.Subject, body, options.To)
+	msg := client.NewMessage(options.From, options.Subject, body, options.To...)
 	if options.Template != "" {
 		msg.SetTemplate(options.Template)
 

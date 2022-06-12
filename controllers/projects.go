@@ -14,6 +14,7 @@ import (
 	"github.com/joshnies/decent-vcs-api/config"
 	"github.com/joshnies/decent-vcs-api/lib/acl"
 	"github.com/joshnies/decent-vcs-api/lib/auth"
+	"github.com/joshnies/decent-vcs-api/lib/emailclient"
 	"github.com/joshnies/decent-vcs-api/models"
 	"github.com/joshnies/decent-vcs-api/models/auth0"
 	"github.com/sethvargo/go-password/password"
@@ -404,7 +405,7 @@ func DeleteOneProject(c *fiber.Ctx) error {
 func InviteManyUsers(c *fiber.Ctx) error {
 	// Validate project
 	pid := c.Params("pid")
-	_, err := primitive.ObjectIDFromHex(pid)
+	projectObjId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -438,7 +439,23 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		}
 	}
 
+	// Get project
+	project := models.Project{}
+	err = config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"_id": projectObjId}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	// Invite new users and add permission for existing users
+	// TODO: Add progress bar
 	httpClient := &http.Client{}
 	for _, email := range body.Emails {
 		req, _ := http.NewRequest(
@@ -450,7 +467,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 
 		res, err := httpClient.Do(req)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error getting user with email \"%s\" from Auth0: %s", email, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
@@ -465,7 +482,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		var users []map[string]any
 		err = json.NewDecoder(res.Body).Decode(&users)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error decoding response body while getting user with email \"%s\" from Auth0: %s", email, err.Error())
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
@@ -475,7 +492,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			// User doesn't exist in system yet, invite them
 			pwd, err := password.Generate(32, 5, 5, false, false)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error generating password for invited user:", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
@@ -499,7 +516,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			req.Header.Add("Content-Type", "application/json")
 			res, err := httpClient.Do(req)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error while inviting user with Auth0:", err)
 
 				// Dump response
 				dump, _ := httputil.DumpResponse(res, true)
@@ -526,7 +543,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			var resBody auth0.CreateUserResponse
 			err = json.NewDecoder(res.Body).Decode(&resBody)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error parsing response body while creating user in Auth0:", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
@@ -548,7 +565,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			req.Header.Add("Content-Type", "application/json")
 			res, err = httpClient.Do(req)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error creating password change ticket in Auth0:", err)
 
 				// Dump response
 				dump, _ := httputil.DumpResponse(res, true)
@@ -574,13 +591,31 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			var ticketRes auth0.CreatePasswordChangeTicketResponse
 			err = json.NewDecoder(res.Body).Decode(&ticketRes)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error parsing response body while creating password change ticket in Auth0:", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
 			}
 
-			// TODO: Send invite email
+			// Send invite email
+			err = emailclient.Send(emailclient.SendEmailOptions{
+				From:     config.EmailClient.FromAddresses.NoReply,
+				To:       []string{email},
+				Subject:  fmt.Sprintf("You've been invited to %s on DecentVCS", project.Name),
+				Template: "invite",
+				TemplateVars: map[string]any{
+					"project": map[string]any{
+						"name": project.Name,
+					},
+					"invite_url": ticketRes.Ticket,
+				},
+			})
+			if err != nil {
+				fmt.Printf("Error sending invite email to %s: %s\n", email, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
 		} else {
 			// Add permission for existing user
 			user := users[0]
