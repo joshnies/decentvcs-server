@@ -1,7 +1,7 @@
 FROM golang:1.18-alpine
 WORKDIR /app
 
-# Build and install decent-vcs-api
+# Build and install
 COPY . .
 RUN go build
 
@@ -11,4 +11,4 @@ RUN wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.ke
     apk add doppler
 
 EXPOSE 8080
-CMD ["doppler", "run", "--", "./decent-vcs-api"]
+CMD ["doppler", "run", "--", "./decent-vcs"]
