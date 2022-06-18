@@ -1,6 +1,6 @@
 # DecentVCS
 
-Official REST API server for DecentVCS.
+Official server for DecentVCS.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ It should be added to your path automatically. You can then run the built execut
 dvcs-server
 ```
 
-## Routes
+## REST API Routes
 
 | Method | Path                                   | Description                                   |
 | ------ | -------------------------------------- | --------------------------------------------- |
