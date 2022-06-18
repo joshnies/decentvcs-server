@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs/config"
 )
 
 type Role int8

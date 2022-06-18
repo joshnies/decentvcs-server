@@ -1,4 +1,4 @@
-module github.com/joshnies/decent-vcs-api
+module github.com/joshnies/decent-vcs
 
 go 1.18
 

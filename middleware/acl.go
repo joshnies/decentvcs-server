@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs-api/lib/acl"
-	"github.com/joshnies/decent-vcs-api/lib/auth"
+	"github.com/joshnies/decent-vcs/lib/acl"
+	"github.com/joshnies/decent-vcs/lib/auth"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

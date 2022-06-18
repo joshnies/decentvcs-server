@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs-api/config"
-	"github.com/joshnies/decent-vcs-api/lib/auth"
-	"github.com/joshnies/decent-vcs-api/models"
+	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

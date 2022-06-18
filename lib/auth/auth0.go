@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs/config"
 )
 
 func UpdateAuth0ManagementToken() {

@@ -2,9 +2,9 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs-api/controllers"
-	"github.com/joshnies/decent-vcs-api/lib/acl"
-	"github.com/joshnies/decent-vcs-api/middleware"
+	"github.com/joshnies/decent-vcs/controllers"
+	"github.com/joshnies/decent-vcs/lib/acl"
+	"github.com/joshnies/decent-vcs/middleware"
 )
 
 func RouteProjects(router fiber.Router) {

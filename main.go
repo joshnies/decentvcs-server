@@ -9,10 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/joshnies/decent-vcs-api/config"
-	"github.com/joshnies/decent-vcs-api/lib/auth"
-	"github.com/joshnies/decent-vcs-api/middleware"
-	"github.com/joshnies/decent-vcs-api/routes"
+	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/middleware"
+	"github.com/joshnies/decent-vcs/routes"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
-		AppName: "DecentVCS API v0.1.0",
+		AppName: "DecentVCS Server v0.1.0",
 	})
 
 	// Use middleware

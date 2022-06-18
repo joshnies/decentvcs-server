@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs-api/controllers"
-	"github.com/joshnies/decent-vcs-api/middleware"
+	"github.com/joshnies/decent-vcs/controllers"
+	"github.com/joshnies/decent-vcs/middleware"
 )
 
 func RouteStorage(router fiber.Router) {

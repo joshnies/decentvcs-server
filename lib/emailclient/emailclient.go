@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/joshnies/decent-vcs-api/config"
+	"github.com/joshnies/decent-vcs/config"
 )
 
 type SendEmailOptions struct {
