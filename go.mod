@@ -13,6 +13,7 @@ require (
 	github.com/gofiber/adaptor/v2 v2.1.23
 	github.com/gofiber/fiber/v2 v2.33.0
 	github.com/joho/godotenv v1.4.0
+	github.com/mailgun/mailgun-go/v4 v4.8.1
 	github.com/sethvargo/go-password v0.2.0
 	go.mongodb.org/mongo-driver v1.9.0
 )
@@ -42,7 +43,6 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/klauspost/compress v1.15.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/mailgun/mailgun-go/v4 v4.8.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

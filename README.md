@@ -1,23 +1,12 @@
 # DecentVCS
 
-Official server for DecentVCS.
+Core server for DecentVCS, the simple, affordable, and decentralized version control system.
 
 ## Requirements
 
 | Dependency | Version |
 | ---------- | ------- |
 | `go`       | 1.18+   |
-
-### Architecture
-
-DecentVCS relies on certain architecture components. You're free to choose any of the supported providers below.
-
-| Component    | Supported Providers                                        |
-| ------------ | ---------------------------------------------------------- |
-| SQL database | MySQL, PostgreSQL, SQLite, SQL Server                      |
-| Auth service | [Auth0](https://auth0.com/), [Stytch](https://stytch.com/) |
-
-> We're always working on adding support for more components, so stay tuned! Feel free to submit a PR if you're up to it as well 🤗
 
 ## Environment
 
