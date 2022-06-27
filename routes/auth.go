@@ -6,5 +6,5 @@ import (
 )
 
 func RouteAuth(router fiber.Router) {
-	router.Get("/authenticate", controllers.Authenticate)
+	router.Post("/authenticate", controllers.Authenticate)
 }
