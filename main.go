@@ -29,6 +29,7 @@ func main() {
 	config.InitDatabase()
 	config.InitStorage()
 	config.InitEmailClient()
+	config.InitStytch()
 
 	// Fetch initial Auth0 management API access token
 	auth.UpdateAuth0ManagementToken()
@@ -46,6 +47,7 @@ func main() {
 	}
 
 	// Define routes
+	routes.RouteAuth(app.Group("/"))
 	routes.RouteProjects(app.Group("/projects"))
 	routes.RouteCommits(app.Group("/projects/:pid/commits"))
 	routes.RouteBranches(app.Group("/projects/:pid/branches"))
