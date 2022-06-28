@@ -123,8 +123,6 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 // - name: Project name
 //
 func CreateProject(c *fiber.Ctx) error {
-	fmt.Println("Creating project...")
-
 	// Get user ID
 	userID, err := auth.GetUserID(c)
 	if err != nil {
@@ -134,7 +132,6 @@ func CreateProject(c *fiber.Ctx) error {
 	// Parse body
 	var body models.Project
 	if err := c.BodyParser(&body); err != nil {
-		fmt.Println(err) // DEBUG
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
 		})
@@ -211,40 +208,39 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	// TODO: Replace Auth0 permissions with our own database
 	// Add `owner` permission to user `app_metadata` in Auth0
-	httpClient := &http.Client{}
-	reqBody, _ := json.Marshal(map[string]any{
-		"app_metadata": map[string]any{
-			fmt.Sprintf("permission:%s:owner", project.ID.Hex()): true,
-		},
-	})
-	req, _ := http.NewRequest(
-		"PATCH",
-		fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID),
-		bytes.NewBuffer(reqBody),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-	res, err := httpClient.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if res.StatusCode != 200 {
-		fmt.Printf("Error status code recieved from Auth0 while adding user permission: %d\n", res.StatusCode)
+	// httpClient := &http.Client{}
+	// reqBody, _ := json.Marshal(map[string]any{
+	// 	"app_metadata": map[string]any{
+	// 		fmt.Sprintf("permission:%s:owner", project.ID.Hex()): true,
+	// 	},
+	// })
+	// req, _ := http.NewRequest(
+	// 	"PATCH",
+	// 	fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID),
+	// 	bytes.NewBuffer(reqBody),
+	// )
+	// req.Header.Set("Content-Type", "application/json")
+	// req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
+	// res, err := httpClient.Do(req)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"error": "Internal server error",
+	// 	})
+	// }
+	// if res.StatusCode != 200 {
+	// 	fmt.Printf("Error status code recieved from Auth0 while adding user permission: %d\n", res.StatusCode)
 
-		// Dump response
-		dump, _ := httputil.DumpResponse(res, true)
-		fmt.Println(string(dump))
+	// 	// Dump response
+	// 	dump, _ := httputil.DumpResponse(res, true)
+	// 	fmt.Println(string(dump))
 
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	fmt.Println("Project created successfully")
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"error": "Internal server error",
+	// 	})
+	// }
 
 	return c.JSON(fiber.Map{
 		"_id":  project.ID.Hex(),
