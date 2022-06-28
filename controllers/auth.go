@@ -38,3 +38,14 @@ func Authenticate(c *fiber.Ctx) error {
 	c.Status(200).JSON(res)
 	return nil
 }
+
+// Revoke the session.
+func RevokeSession(c *fiber.Ctx) error {
+	sessionToken := c.Get("X-Session-Token") // already validated in the `ValidateAuth` middleware
+
+	_, err := config.StytchClient.Sessions.Revoke(&stytch.SessionsRevokeParams{
+		SessionToken: sessionToken,
+	})
+
+	return err
+}
