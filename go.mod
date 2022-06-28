@@ -3,7 +3,6 @@ module github.com/joshnies/decent-vcs
 go 1.18
 
 require (
-	github.com/auth0/go-jwt-middleware/v2 v2.0.1
 	github.com/aws/aws-sdk-go-v2 v1.16.4
 	github.com/aws/aws-sdk-go-v2/config v1.15.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.10
@@ -60,5 +59,4 @@ require (
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )

@@ -29,9 +29,7 @@ func HasProjectAccess(c *fiber.Ctx) error {
 	// Check if user has access to project
 	userId, err := auth.GetUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
+		return err
 	}
 
 	hasAccess, err := acl.HasProjectAccess(userId, pid)
@@ -73,9 +71,7 @@ func HasProjectAccessWithRole(minRole acl.Role) func(*fiber.Ctx) error {
 		// Check if user has role for project
 		userId, err := auth.GetUserID(c)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized",
-			})
+			return err
 		}
 
 		userRole, err := acl.GetProjectRole(userId, pid)

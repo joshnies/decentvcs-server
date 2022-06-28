@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/middleware"
 	"github.com/joshnies/decent-vcs/routes"
 )
 
@@ -29,17 +29,10 @@ func main() {
 	config.InitEmailClient()
 	config.InitStytch()
 
-	// Fetch initial Auth0 management API access token
-	auth.UpdateAuth0ManagementToken()
-
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
 		AppName: "DecentVCS Server v0.1.0",
 	})
-
-	// Use middleware
-	// TODO: Replace/update JWT validation middleware for Stytch
-	// app.Use(adaptor.HTTPMiddleware(middleware.ValidateJWT()))
 
 	if config.I.Debug {
 		app.Use(logger.New())
@@ -47,10 +40,10 @@ func main() {
 
 	// Define routes
 	routes.RouteAuth(app.Group("/"))
-	routes.RouteProjects(app.Group("/projects"))
-	routes.RouteCommits(app.Group("/projects/:pid/commits"))
-	routes.RouteBranches(app.Group("/projects/:pid/branches"))
-	routes.RouteStorage(app.Group("/projects/:pid/storage"))
+	routes.RouteProjects(app.Group("/projects", middleware.ValidateAuth))
+	routes.RouteCommits(app.Group("/projects/:pid/commits", middleware.ValidateAuth, middleware.HasProjectAccess))
+	routes.RouteBranches(app.Group("/projects/:pid/branches", middleware.ValidateAuth, middleware.HasProjectAccess))
+	routes.RouteStorage(app.Group("/projects/:pid/storage", middleware.ValidateAuth, middleware.HasProjectAccess))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.I.Port))

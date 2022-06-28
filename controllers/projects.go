@@ -123,12 +123,12 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 // - name: Project name
 //
 func CreateProject(c *fiber.Ctx) error {
+	fmt.Println("Creating project...")
+
 	// Get user ID
 	userID, err := auth.GetUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
+		return err
 	}
 
 	// Parse body
@@ -243,6 +243,8 @@ func CreateProject(c *fiber.Ctx) error {
 			"error": "Internal server error",
 		})
 	}
+
+	fmt.Println("Project created successfully")
 
 	return c.JSON(fiber.Map{
 		"_id":  project.ID.Hex(),

@@ -22,6 +22,7 @@ func Authenticate(c *fiber.Ctx) error {
 		Token:                  body.Token,
 		SessionToken:           body.SessionToken,
 		SessionDurationMinutes: config.I.Stytch.SessionDurationMinutes,
+		// TODO: Add IP matching
 		// Options:    stytch.Options{IPMatchRequired: true},
 		// Attributes: stytch.Attributes{IPAddress: "10.0.0.0"},
 	})
