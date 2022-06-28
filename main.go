@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/middleware"
 	"github.com/joshnies/decent-vcs/routes"
 )
 
@@ -40,7 +38,8 @@ func main() {
 	})
 
 	// Use middleware
-	app.Use(adaptor.HTTPMiddleware(middleware.ValidateJWT()))
+	// TODO: Replace/update JWT validation middleware for Stytch
+	// app.Use(adaptor.HTTPMiddleware(middleware.ValidateJWT()))
 
 	if config.I.Debug {
 		app.Use(logger.New())

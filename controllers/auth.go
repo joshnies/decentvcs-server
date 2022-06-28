@@ -16,8 +16,12 @@ func Authenticate(c *fiber.Ctx) error {
 	}
 
 	// Authenticate magic link token
+	//
+	// If `SessionToken` is provided, the existing session will be refreshed instead of creating a new one
 	stytchres, err := config.StytchClient.MagicLinks.Authenticate(&stytch.MagicLinksAuthenticateParams{
-		Token: body.Token,
+		Token:                  body.Token,
+		SessionToken:           body.SessionToken,
+		SessionDurationMinutes: config.I.Stytch.SessionDurationMinutes,
 		// Options:    stytch.Options{IPMatchRequired: true},
 		// Attributes: stytch.Attributes{IPAddress: "10.0.0.0"},
 	})

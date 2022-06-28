@@ -11,6 +11,7 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
+// TODO: Remove Auth0 config
 type Auth0Config struct {
 	ClientID     string
 	ClientSecret string
@@ -24,12 +25,17 @@ type Auth0Config struct {
 	InviteReturnURL    string
 }
 
+type StytchConfig struct {
+	SessionDurationMinutes int32
+}
+
 type Config struct {
 	Debug          bool
 	Port           string
 	Scheduler      *gocron.Scheduler
 	MaxInviteCount int
 	Auth0          Auth0Config
+	Stytch         StytchConfig
 }
 
 // Global config instance
@@ -60,6 +66,7 @@ func InitConfig() {
 	}
 
 	// Auth0
+	// TODO: Remove this
 	auth0ClientID := os.Getenv("AUTH0_CLIENT_ID")
 	if auth0ClientID == "" {
 		panic("AUTH0_CLIENT_ID environment variable not set")
@@ -85,6 +92,16 @@ func InitConfig() {
 		log.Fatalf("Failed to parse Auth0 issuer URL: %v", err)
 	}
 
+	// Stytch
+	sessionDurationMinutesStr := os.Getenv("SESSION_DURATION_MINUTES")
+	if sessionDurationMinutesStr == "" {
+		sessionDurationMinutesStr = "1440" // 30 days
+	}
+	sessionDurationMinutes, err := strconv.Atoi(sessionDurationMinutesStr)
+	if err != nil {
+		log.Fatal("SESSION_DURATION_MINUTES must be an integer")
+	}
+
 	I = Config{
 		Debug:          os.Getenv("DEBUG") == "1",
 		Port:           getPort(),
@@ -97,6 +114,9 @@ func InitConfig() {
 			Audience:           auth0Audience,
 			IssuerURL:          auth0IssuerURL,
 			ManagementAudience: fmt.Sprintf("https://%s/api/v2/", auth0Domain),
+		},
+		Stytch: StytchConfig{
+			SessionDurationMinutes: int32(sessionDurationMinutes),
 		},
 	}
 }
