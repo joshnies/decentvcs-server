@@ -9,40 +9,6 @@ import (
 	"github.com/joshnies/decent-vcs/config"
 )
 
-type Role int8
-
-const (
-	RoleCollaborator Role = iota
-	RoleAdmin
-	RoleOwner
-)
-
-func GetRoleName(role Role) string {
-	switch role {
-	case RoleOwner:
-		return "owner"
-	case RoleAdmin:
-		return "admin"
-	case RoleCollaborator:
-		return "collab"
-	default:
-		return ""
-	}
-}
-
-func GetRoleFromName(roleName string) (Role, error) {
-	switch roleName {
-	case "owner":
-		return RoleOwner, nil
-	case "admin":
-		return RoleAdmin, nil
-	case "collab":
-		return RoleCollaborator, nil
-	default:
-		return -1, fmt.Errorf("invalid role name: %s", roleName)
-	}
-}
-
 // Returns true if user has access to the given project.
 func HasProjectAccess(userID string, projectID string) (bool, error) {
 	// Get user from Auth0
