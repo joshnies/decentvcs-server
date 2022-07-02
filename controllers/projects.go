@@ -17,7 +17,6 @@ import (
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/lib/emailclient"
 	"github.com/joshnies/decent-vcs/models"
-	"github.com/joshnies/decent-vcs/models/auth0"
 	"github.com/sethvargo/go-password/password"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -100,7 +99,7 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 		})
 	}
 
-	hasAccess, err := acl.HasProjectAccess(userId, result.ID.Hex())
+	hasAccess, err := acl.HasProjectAccess(userId, result.ID.Hex(), models.RoleAny)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -286,14 +285,14 @@ func UpdateOneProject(c *fiber.Ctx) error {
 		})
 	}
 
-	role, err := acl.GetProjectRole(userId, pid)
+	hasAccess, err := acl.HasProjectAccess(userId, pid, models.RoleAdmin)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
-	if role != acl.RoleAdmin {
+	if !hasAccess {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})

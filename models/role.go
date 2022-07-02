@@ -5,6 +5,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 type Role string
 
 const (
+	RoleAny    Role = "any"
 	RoleCollab Role = "collab"
 	RoleAdmin  Role = "admin"
 	RoleOwner  Role = "owner"

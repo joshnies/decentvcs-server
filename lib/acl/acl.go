@@ -12,7 +12,7 @@ import (
 )
 
 // Returns true if user has access to the given project (with any role).
-func HasProjectAccess(userID string, projectID string) (bool, error) {
+func HasProjectAccess(userID string, projectID string, minRole models.Role) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -29,6 +29,21 @@ func HasProjectAccess(userID string, projectID string) (bool, error) {
 	// Loop through roles
 	for _, r := range userData.Roles {
 		if r.ProjectID.Hex() == projectID {
+			if minRole != models.RoleNone {
+				// User has access to project with role
+				userRoleLvl, err := GetRoleLevel(r.Role)
+				if err != nil {
+					return false, err
+				}
+
+				minRoleLvl, err := GetRoleLevel(minRole)
+				if err != nil {
+					return false, err
+				}
+
+				return userRoleLvl >= minRoleLvl, nil
+			}
+
 			// User has access to project
 			return true, nil
 		}
