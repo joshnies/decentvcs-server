@@ -7,12 +7,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.10
 	github.com/go-co-op/gocron v1.13.0
-	github.com/go-jose/go-jose v2.5.1+incompatible
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/gofiber/fiber/v2 v2.33.0
 	github.com/joho/godotenv v1.4.0
 	github.com/mailgun/mailgun-go/v4 v4.8.1
-	github.com/sethvargo/go-password v0.2.0
 	github.com/stytchauth/stytch-go/v5 v5.6.1
 	go.mongodb.org/mongo-driver v1.9.0
 )

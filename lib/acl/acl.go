@@ -8,6 +8,7 @@ import (
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -94,4 +95,55 @@ func GetRoleLevel(role models.Role) (uint, error) {
 	default:
 		return 0, errors.New("invalid role")
 	}
+}
+
+// Create a data object in the VCS database linked to the given user.
+func CreateUserData(userID string) (models.UserData, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create user data
+	userData := models.UserData{
+		ID:        primitive.NewObjectID(),
+		CreatedAt: time.Now().Unix(),
+		UserID:    userID,
+	}
+
+	if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+		return models.UserData{}, err
+	}
+
+	return userData, nil
+}
+
+// Add a new role to a user's data in the VCS database.
+func AddRole(userID string, projectID primitive.ObjectID, role models.Role) (models.UserData, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get or create user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			userData, err = CreateUserData(userID)
+			if err != nil {
+				return models.UserData{}, err
+			}
+		}
+
+		return models.UserData{}, err
+	}
+
+	// Add role
+	userData.Roles = append(userData.Roles, models.RoleObject{
+		ProjectID: projectID,
+		Role:      role,
+	})
+
+	// Update user data
+	if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, &bson.M{"user_id": userID}, &bson.M{"$set": &userData}); err != nil {
+		return models.UserData{}, err
+	}
+
+	return userData, nil
 }

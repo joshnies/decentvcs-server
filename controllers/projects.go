@@ -1,23 +1,16 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
 	"net/mail"
-	"net/url"
 	"time"
 
-	"github.com/go-jose/go-jose/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/lib/emailclient"
 	"github.com/joshnies/decent-vcs/models"
-	"github.com/sethvargo/go-password/password"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -137,9 +130,9 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Validate body
-	if vErr := validate.Struct(body); vErr != nil {
+	if err := validate.Struct(body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": vErr.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -159,8 +152,7 @@ func CreateProject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err = config.MI.DB.Collection("projects").InsertOne(ctx, project)
-	if err != nil {
+	if _, err = config.MI.DB.Collection("projects").InsertOne(ctx, project); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -177,8 +169,7 @@ func CreateProject(c *fiber.Ctx) error {
 		Message:   "Initial commit",
 	}
 
-	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
-	if err != nil {
+	if _, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit); err != nil {
 		// Delete project
 		config.MI.DB.Collection("projects").DeleteOne(ctx, bson.M{"_id": project.ID})
 
@@ -199,47 +190,20 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Insert branch into database
-	_, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch)
-	if err != nil {
+	if _, err = config.MI.DB.Collection("branches").InsertOne(ctx, branch); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
 
-	// TODO: Replace Auth0 permissions with our own database
-	// Add `owner` permission to user `app_metadata` in Auth0
-	// httpClient := &http.Client{}
-	// reqBody, _ := json.Marshal(map[string]any{
-	// 	"app_metadata": map[string]any{
-	// 		fmt.Sprintf("permission:%s:owner", project.ID.Hex()): true,
-	// 	},
-	// })
-	// req, _ := http.NewRequest(
-	// 	"PATCH",
-	// 	fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, userID),
-	// 	bytes.NewBuffer(reqBody),
-	// )
-	// req.Header.Set("Content-Type", "application/json")
-	// req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-	// res, err := httpClient.Do(req)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"error": "Internal server error",
-	// 	})
-	// }
-	// if res.StatusCode != 200 {
-	// 	fmt.Printf("Error status code recieved from Auth0 while adding user permission: %d\n", res.StatusCode)
-
-	// 	// Dump response
-	// 	dump, _ := httputil.DumpResponse(res, true)
-	// 	fmt.Println(string(dump))
-
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"error": "Internal server error",
-	// 	})
-	// }
+	// Add owner role to user for project
+	if _, err = acl.AddRole(userID, project.ID, models.RoleOwner); err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
 
 	return c.JSON(fiber.Map{
 		"_id":  project.ID.Hex(),
@@ -452,263 +416,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get owner alias (for generating project blob)
-	// TODO: Update when we add support for teams
-	httpClient := &http.Client{}
-	reqUrl := fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, url.QueryEscape(project.OwnerID))
-	req, _ := http.NewRequest("GET", reqUrl, nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-	req.Header.Set("Content-Type", "application/json")
-	res, err := httpClient.Do(req)
-	if err != nil {
-		fmt.Println("Error getting project owner from Auth0:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	if res.StatusCode != 200 {
-		fmt.Println("Error getting project owner from Auth0:", res.StatusCode)
-
-		// Dump response
-		dump, err := httputil.DumpResponse(res, true)
-		if err != nil {
-			fmt.Println("Error dumping response:", err)
-		}
-		fmt.Println(string(dump))
-
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	defer res.Body.Close()
-
-	// Parse response
-	var owner auth0.User
-	if err := json.NewDecoder(res.Body).Decode(&owner); err != nil {
-		fmt.Println("Error parsing response while getting project owner from Auth0:", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Invite new users and add permission for existing users
-	// TODO: Add progress bar
-	for _, email := range body.Emails {
-		req, _ := http.NewRequest(
-			"GET",
-			fmt.Sprintf("https://%s/api/v2/users?search_engine=v3&include_fields=true&q=email:%s", config.I.Auth0.Domain, email),
-			nil,
-		)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-
-		res, err := httpClient.Do(req)
-		if err != nil {
-			fmt.Printf("Error getting user with email \"%s\" from Auth0: %s", email, err.Error())
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-		if res.StatusCode != 200 {
-			fmt.Printf("Received status code %d from Auth0 while searching for user with email \"%s\"\n", res.StatusCode, email)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-		defer res.Body.Close()
-
-		var users []map[string]any
-		err = json.NewDecoder(res.Body).Decode(&users)
-		if err != nil {
-			fmt.Printf("Error decoding response body while getting user with email \"%s\" from Auth0: %s", email, err.Error())
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		if len(users) == 0 {
-			// User doesn't exist in system yet, invite them
-			pwd, err := password.Generate(32, 5, 5, false, false)
-			if err != nil {
-				fmt.Println("Error generating password for invited user:", err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			body, _ := json.Marshal(map[string]any{
-				"connection":   "Username-Password-Authentication",
-				"email":        email,
-				"password":     pwd,   // use random password, user will need to reset via invite email
-				"verify_email": false, // email will be verified via the password change ticket
-				"app_metadata": map[string]any{
-					"invited":                                true,
-					fmt.Sprintf("permission:%s:collab", pid): true,
-				},
-			})
-			req, _ := http.NewRequest(
-				"POST",
-				fmt.Sprintf("https://%s/api/v2/users", config.I.Auth0.Domain),
-				bytes.NewBuffer(body),
-			)
-			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-			req.Header.Add("Content-Type", "application/json")
-			res, err := httpClient.Do(req)
-			if err != nil {
-				fmt.Println("Error while inviting user with Auth0:", err)
-
-				// Dump response
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(string(dump))
-
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-			if res.StatusCode != 201 {
-				fmt.Printf("Received status code %d from Auth0 while inviting user with email \"%s\"\n", res.StatusCode, email)
-
-				// Dump response
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(string(dump))
-
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-			defer res.Body.Close()
-
-			// Parse body
-			var resBody auth0.CreateUserResponse
-			err = json.NewDecoder(res.Body).Decode(&resBody)
-			if err != nil {
-				fmt.Println("Error parsing response body while creating user in Auth0:", err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			// Create password change ticket in Auth0
-			identity := resBody.Identities[0]
-			body, _ = json.Marshal(map[string]any{
-				"user_id":                fmt.Sprintf("%s|%s", identity.Provider, identity.UserID),
-				"mark_email_as_verified": true,
-				// "return_url":             config.I.Auth0.InviteReturnURL,
-			})
-			req, _ = http.NewRequest(
-				"POST",
-				fmt.Sprintf("https://%s/api/v2/tickets/password-change", config.I.Auth0.Domain),
-				bytes.NewBuffer(body),
-			)
-			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-			req.Header.Add("Content-Type", "application/json")
-			res, err = httpClient.Do(req)
-			if err != nil {
-				fmt.Println("Error creating password change ticket in Auth0:", err)
-
-				// Dump response
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(string(dump))
-
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-			if res.StatusCode != 201 {
-				fmt.Printf("Received status code %d from Auth0 while creating password change ticket for user with email \"%s\"\n", res.StatusCode, email)
-
-				// Dump response
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(string(dump))
-
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			// Parse body
-			var ticketRes auth0.CreatePasswordChangeTicketResponse
-			err = json.NewDecoder(res.Body).Decode(&ticketRes)
-			if err != nil {
-				fmt.Println("Error parsing response body while creating password change ticket in Auth0:", err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			// Send invite email
-			err = emailclient.Send(emailclient.SendEmailOptions{
-				From:     config.EmailClient.FromAddresses.NoReply,
-				To:       []string{email},
-				Subject:  fmt.Sprintf("You've been invited to %s on DecentVCS", project.Name),
-				Template: "invite",
-				TemplateVars: map[string]any{
-					"project": map[string]any{
-						"name": project.Name,
-					},
-					"invite_url": ticketRes.Ticket,
-				},
-			})
-			if err != nil {
-				fmt.Printf("Error sending invite email to %s: %s\n", email, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-		} else {
-			// Add permission for existing user
-			user := users[0]
-			body, _ := json.Marshal(map[string]any{
-				"app_metadata": map[string]any{
-					fmt.Sprintf("permission:%s:collab", pid): true,
-				},
-			})
-			req, _ := http.NewRequest(
-				"PATCH",
-				fmt.Sprintf("https://%s/api/v2/users/%s", config.I.Auth0.Domain, user["user_id"]),
-				bytes.NewBuffer(body),
-			)
-			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.I.Auth0.ManagementToken))
-			req.Header.Add("Content-Type", "application/json")
-			res, err := httpClient.Do(req)
-			if err != nil {
-				fmt.Println(err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-			if res.StatusCode != 200 {
-				fmt.Printf("Received status code %d from Auth0 while adding permission for user with email \"%s\"\n", res.StatusCode, email)
-
-				// Dump response
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(string(dump))
-
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			// Send existing user an email notifying them of their new permission
-			err = emailclient.Send(emailclient.SendEmailOptions{
-				From:     config.EmailClient.FromAddresses.NoReply,
-				To:       []string{email},
-				Subject:  fmt.Sprintf("You've been invited to %s on DecentVCS", project.Name),
-				Template: "invite",
-				TemplateVars: map[string]any{
-					"project": map[string]any{
-						"name": project.Name,
-						"blob": fmt.Sprintf("%s/%s", owner.Username, project.Name),
-					},
-				},
-			})
-			if err != nil {
-				fmt.Printf("Error sending invite email to %s: %s\n", email, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-		}
-	}
+	// TODO: Invite new users and add permission for existing users
 
 	return nil
 }
