@@ -107,6 +107,7 @@ func CreateUserData(userID string) (models.UserData, error) {
 		ID:        primitive.NewObjectID(),
 		CreatedAt: time.Now().Unix(),
 		UserID:    userID,
+		Roles:     []models.RoleObject{},
 	}
 
 	if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
