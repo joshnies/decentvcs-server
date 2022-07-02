@@ -63,10 +63,10 @@ func GetProjectRole(userID string, projectID string) (models.Role, error) {
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return "", errors.New("user not found")
+			return models.RoleNone, errors.New("user not found")
 		}
 
-		return "", err
+		return models.RoleNone, err
 	}
 
 	// Loop through roles
@@ -78,7 +78,7 @@ func GetProjectRole(userID string, projectID string) (models.Role, error) {
 	}
 
 	// No role found for project
-	return "", nil
+	return models.RoleNone, nil
 }
 
 // Get the numerical level of a role.

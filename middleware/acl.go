@@ -33,7 +33,7 @@ func HasProjectAccess(c *fiber.Ctx) error {
 		return err
 	}
 
-	hasAccess, err := acl.HasProjectAccess(userId, pid)
+	hasAccess, err := acl.HasProjectAccess(userId, pid, models.RoleNone)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -98,8 +98,8 @@ func HasProjectAccessWithRole(minRole models.Role) func(*fiber.Ctx) error {
 		}
 
 		if userRoleLvl < minRoleLvl {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized",
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "Forbidden",
 			})
 		}
 

@@ -99,7 +99,7 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 		})
 	}
 
-	hasAccess, err := acl.HasProjectAccess(userId, result.ID.Hex(), models.RoleAny)
+	hasAccess, err := acl.HasProjectAccess(userId, result.ID.Hex(), models.RoleNone)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
