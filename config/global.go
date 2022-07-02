@@ -1,9 +1,7 @@
 package config
 
 import (
-	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -11,31 +9,17 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
-// TODO: Remove Auth0 config
-type Auth0Config struct {
-	ClientID     string
-	ClientSecret string
-	Domain       string
-	Audience     string
-	IssuerURL    *url.URL
-	// Management API access token
-	ManagementToken string
-	// Management API audience
-	ManagementAudience string
-	InviteReturnURL    string
-}
-
 type StytchConfig struct {
 	SessionDurationMinutes int32
 }
 
 type Config struct {
-	Debug          bool
-	Port           string
-	Scheduler      *gocron.Scheduler
-	MaxInviteCount int
-	Auth0          Auth0Config
-	Stytch         StytchConfig
+	Debug           bool
+	LogResponseBody bool
+	Port            string
+	Scheduler       *gocron.Scheduler
+	MaxInviteCount  int
+	Stytch          StytchConfig
 }
 
 // Global config instance
@@ -65,33 +49,6 @@ func InitConfig() {
 		log.Fatal("MAX_INVITE_COUNT must be greater than 0")
 	}
 
-	// Auth0
-	// TODO: Remove this
-	auth0ClientID := os.Getenv("AUTH0_CLIENT_ID")
-	if auth0ClientID == "" {
-		panic("AUTH0_CLIENT_ID environment variable not set")
-	}
-
-	auth0ClientSecret := os.Getenv("AUTH0_CLIENT_SECRET")
-	if auth0ClientSecret == "" {
-		panic("AUTH0_CLIENT_SECRET environment variable not set")
-	}
-
-	auth0Domain := os.Getenv("AUTH0_DOMAIN")
-	if auth0Domain == "" {
-		panic("AUTH0_DOMAIN environment variable not set")
-	}
-
-	auth0Audience := os.Getenv("AUTH0_AUDIENCE")
-	if auth0Audience == "" {
-		panic("AUTH0_AUDIENCE environment variable not set")
-	}
-
-	auth0IssuerURL, err := url.Parse("https://" + auth0Domain + "/")
-	if err != nil {
-		log.Fatalf("Failed to parse Auth0 issuer URL: %v", err)
-	}
-
 	// Stytch
 	sessionDurationMinutesStr := os.Getenv("SESSION_DURATION_MINUTES")
 	if sessionDurationMinutesStr == "" {
@@ -103,18 +60,11 @@ func InitConfig() {
 	}
 
 	I = Config{
-		Debug:          os.Getenv("DEBUG") == "1",
-		Port:           getPort(),
-		Scheduler:      gocron.NewScheduler(time.UTC),
-		MaxInviteCount: maxInviteCount,
-		Auth0: Auth0Config{
-			ClientID:           auth0ClientID,
-			ClientSecret:       auth0ClientSecret,
-			Domain:             auth0Domain,
-			Audience:           auth0Audience,
-			IssuerURL:          auth0IssuerURL,
-			ManagementAudience: fmt.Sprintf("https://%s/api/v2/", auth0Domain),
-		},
+		Debug:           os.Getenv("DEBUG") == "1",
+		LogResponseBody: os.Getenv("DEBUG_RES") == "1",
+		Port:            getPort(),
+		Scheduler:       gocron.NewScheduler(time.UTC),
+		MaxInviteCount:  maxInviteCount,
 		Stytch: StytchConfig{
 			SessionDurationMinutes: int32(sessionDurationMinutes),
 		},
