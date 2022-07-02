@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -54,7 +55,7 @@ func HasProjectAccess(c *fiber.Ctx) error {
 //
 // - User has access to the requested project with a role greater or equal to the `minRole`
 //
-func HasProjectAccessWithRole(minRole acl.Role) func(*fiber.Ctx) error {
+func HasProjectAccessWithRole(minRole models.Role) func(*fiber.Ctx) error {
 	// Return middleware function
 	return func(c *fiber.Ctx) error {
 		// Get project ID
@@ -81,7 +82,22 @@ func HasProjectAccessWithRole(minRole acl.Role) func(*fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
-		if userRole < minRole {
+
+		userRoleLvl, err := acl.GetRoleLevel(userRole)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Unauthorized",
+			})
+		}
+
+		minRoleLvl, err := acl.GetRoleLevel(minRole)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Unauthorized",
+			})
+		}
+
+		if userRoleLvl < minRoleLvl {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Unauthorized",
 			})

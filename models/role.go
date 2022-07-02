@@ -12,5 +12,5 @@ const (
 
 type RoleObject struct {
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id"`
-	Access    uint               `json:"access" bson:"access"`
+	Role      Role               `json:"role" bson:"role"`
 }

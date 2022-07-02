@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
 
@@ -31,7 +32,7 @@ func ValidateAuth(c *fiber.Ctx) error {
 	}
 
 	// Add user to context for later use
-	ctx := context.WithValue(c.UserContext(), "user", res.User)
+	ctx := context.WithValue(c.UserContext(), models.ContextKeyUser, res.User)
 	c.SetUserContext(ctx)
 
 	return c.Next()
