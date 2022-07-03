@@ -143,7 +143,6 @@ func CreateProject(c *fiber.Ctx) error {
 	project := models.Project{
 		ID:              primitive.NewObjectID(),
 		CreatedAt:       time.Now().Unix(),
-		OwnerID:         userID,
 		Name:            body.Name,
 		DefaultBranchID: branchId,
 	}
@@ -271,9 +270,6 @@ func UpdateOneProject(c *fiber.Ctx) error {
 	}
 
 	updateData := bson.M{}
-	if body.OwnerID != "" {
-		updateData["owner_id"] = body.OwnerID
-	}
 	if body.Name != "" {
 		updateData["name"] = body.Name
 	}
@@ -298,7 +294,6 @@ func UpdateOneProject(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"_id":               projectObjectId.Hex(),
-		"owner_id":          body.OwnerID,
 		"name":              body.Name,
 		"default_branch_id": body.DefaultBranchID.Hex(),
 	})
