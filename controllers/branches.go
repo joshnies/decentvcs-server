@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -294,6 +295,15 @@ func CreateBranch(c *fiber.Ctx) error {
 	if vErr := validate.Struct(body); vErr != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": vErr.Error(),
+		})
+	}
+
+	// Validate branch name
+	regex := regexp.MustCompile(`^[\w\-]+$`)
+	if !regex.MatchString(body.Name) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid branch name; must be alphanumeric with dashes",
 		})
 	}
 
