@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -172,6 +173,12 @@ func CreateProject(c *fiber.Ctx) error {
 
 	var team models.Team
 	if err := config.MI.DB.Collection("teams").FindOne(ctx, teamFilter).Decode(&team); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Team not found",
+			})
+		}
+
 		fmt.Printf("Error getting default team for user with ID \"%s\": %v\n", userID, err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -246,8 +253,10 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"_id":  project.ID.Hex(),
-		"name": project.Name,
+		"_id":     project.ID.Hex(),
+		"name":    project.Name,
+		"blob":    project.Blob,
+		"team_id": project.TeamID.Hex(),
 		"branches": []fiber.Map{
 			{
 				"_id":  branch.ID.Hex(),
