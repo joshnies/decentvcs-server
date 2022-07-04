@@ -136,6 +136,32 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": userID}).Decode(&userData); err != nil {
+		fmt.Printf("Error getting user data while creating a new project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Get default team for user
+	teamID := body.TeamID
+	if teamID.IsZero() {
+		teamID = userData.DefaultTeamID
+	}
+
+	var team models.Team
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
+		fmt.Printf("Error getting default team for user with ID \"%s\": %v\n", userID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	// Generate default branch ID ahead of time
 	branchId := primitive.NewObjectID()
 
@@ -144,13 +170,12 @@ func CreateProject(c *fiber.Ctx) error {
 		ID:              primitive.NewObjectID(),
 		CreatedAt:       time.Now().Unix(),
 		Name:            body.Name,
+		Blob:            fmt.Sprintf("%s/%s", team.Name, body.Name),
+		TeamID:          team.ID,
 		DefaultBranchID: branchId,
 	}
 
 	// Create project in database
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	if _, err = config.MI.DB.Collection("projects").InsertOne(ctx, project); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

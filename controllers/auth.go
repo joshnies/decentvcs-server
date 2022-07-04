@@ -39,39 +39,8 @@ func Authenticate(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Return response
-	res := models.AuthenticateResponse{
-		SessionToken: stytchres.SessionToken,
-	}
-
-	// Get or create user data from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchres.UserID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			// Create user data
-			userData = models.UserData{
-				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now().Unix(),
-				UserID:    stytchres.UserID,
-				Roles:     []models.RoleObject{},
-			}
-			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
-				fmt.Printf("Error creating user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-		} else {
-			fmt.Printf("Error fetching user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-	}
 
 	// Get or create the user's default team from the database
 	var team models.Team
@@ -115,6 +84,37 @@ func Authenticate(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
+	}
+
+	// Get or create user data from database
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchres.UserID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Create user data
+			userData = models.UserData{
+				ID:            primitive.NewObjectID(),
+				CreatedAt:     time.Now().Unix(),
+				UserID:        stytchres.UserID,
+				Roles:         []models.RoleObject{},
+				DefaultTeamID: team.ID,
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("Error creating user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			fmt.Printf("Error fetching user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// Return response
+	res := models.AuthenticateResponse{
+		SessionToken: stytchres.SessionToken,
 	}
 
 	return c.JSON(res)
