@@ -102,30 +102,9 @@ func AddRole(userID string, projectID primitive.ObjectID, role models.Role) (mod
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Get or create user data
+	// Get user data
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			// Create user data
-			userData := models.UserData{
-				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now().Unix(),
-				UserID:    userID,
-				Roles: []models.RoleObject{
-					{
-						ProjectID: projectID,
-						Role:      role,
-					},
-				},
-			}
-
-			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
-				return models.UserData{}, err
-			}
-
-			return userData, nil
-		}
-
 		return models.UserData{}, err
 	}
 

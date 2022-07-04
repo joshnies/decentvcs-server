@@ -33,7 +33,7 @@ const (
 //
 // - pid: Project ID
 //
-// Body: TODO
+// Request Body: `PresignManyRequestBody`
 //
 // Returns an array of presigned URLs.
 //

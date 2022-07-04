@@ -1,10 +1,18 @@
 package controllers
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Authenticate Stytch session token.
@@ -35,8 +43,37 @@ func Authenticate(c *fiber.Ctx) error {
 		SessionToken: stytchres.SessionToken,
 	}
 
-	c.Status(200).JSON(res)
-	return nil
+	// Get or create user data from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchres.UserID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Create user data
+			userData = models.UserData{
+				ID:        primitive.NewObjectID(),
+				CreatedAt: time.Now().Unix(),
+				UserID:    stytchres.UserID,
+				Roles:     []models.RoleObject{},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("Error creating user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			return c.JSON(res)
+		}
+
+		fmt.Printf("Error fetching user data while authenticating user with ID \"%s\": %v\n", stytchres.UserID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(res)
 }
 
 // Revoke the session.
