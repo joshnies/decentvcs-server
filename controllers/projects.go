@@ -497,10 +497,11 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			// User does not exist in auth provider, invite them via email
 			inviteRes, err := config.StytchClient.MagicLinks.Email.Invite(&stytch.MagicLinksEmailInviteParams{
 				Email:                   email,
+				InviteMagicLinkURL:      config.I.Stytch.InviteRedirectURL,
 				InviteExpirationMinutes: 1440, // 24 hours
 				Attributes: stytch.Attributes{
 					IPAddress: c.IP(),
-					UserAgent: c.Get("User-Agent"),
+					// UserAgent: c.Get("User-Agent"),
 				},
 			})
 			if err != nil {

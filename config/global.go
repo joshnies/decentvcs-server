@@ -10,7 +10,9 @@ import (
 )
 
 type StytchConfig struct {
-	SessionDurationMinutes int32
+	SessionDurationMinutes  int32
+	InviteExpirationMinutes int32
+	InviteRedirectURL       string
 }
 
 type Config struct {
@@ -52,12 +54,23 @@ func InitConfig() {
 	// Stytch
 	sessionDurationMinutesStr := os.Getenv("SESSION_DURATION_MINUTES")
 	if sessionDurationMinutesStr == "" {
-		sessionDurationMinutesStr = "1440" // 30 days
+		sessionDurationMinutesStr = "1440" // 24 hours
 	}
 	sessionDurationMinutes, err := strconv.Atoi(sessionDurationMinutesStr)
 	if err != nil {
 		log.Fatal("SESSION_DURATION_MINUTES must be an integer")
 	}
+
+	inviteExpStr := os.Getenv("INVITE_EXPIRATION_MINUTES")
+	if inviteExpStr == "" {
+		inviteExpStr = "1440" // 24 hours
+	}
+	inviteExp, err := strconv.Atoi(inviteExpStr)
+	if err != nil {
+		log.Fatal("SESSION_DURATION_MINUTES must be an integer")
+	}
+
+	inviteRedirectURL := os.Getenv("INVITE_REDIRECT_URL")
 
 	I = Config{
 		Debug:           os.Getenv("DEBUG") == "1",
@@ -66,7 +79,9 @@ func InitConfig() {
 		Scheduler:       gocron.NewScheduler(time.UTC),
 		MaxInviteCount:  maxInviteCount,
 		Stytch: StytchConfig{
-			SessionDurationMinutes: int32(sessionDurationMinutes),
+			SessionDurationMinutes:  int32(sessionDurationMinutes),
+			InviteExpirationMinutes: int32(inviteExp),
+			InviteRedirectURL:       inviteRedirectURL,
 		},
 	}
 }

@@ -33,10 +33,9 @@ func Authenticate(c *fiber.Ctx) error {
 		SessionDurationMinutes: config.I.Stytch.SessionDurationMinutes,
 		Attributes: stytch.Attributes{
 			IPAddress: c.IP(),
-			UserAgent: c.Get("User-Agent"),
+			// UserAgent: c.Get("User-Agent"),
 		},
-		// TODO: Add IP matching
-		// Options:    stytch.Options{IPMatchRequired: true},
+		Options: stytch.Options{IPMatchRequired: true},
 	})
 	if err != nil {
 		return err
