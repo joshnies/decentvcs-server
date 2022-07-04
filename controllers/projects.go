@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"regexp"
 	"strings"
 	"time"
 
@@ -129,10 +130,12 @@ func CreateProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate body
-	if err := validate.Struct(body); err != nil {
+	// Validate blob
+	regex := regexp.MustCompile(`^(?:[\w\-]+\/)?[\w\-]+$`)
+	if !regex.MatchString(body.Blob) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   "Bad request",
+			"message": "Invalid blob; must be in the format of \"<team_name>/<project_name>\" (team name is optional)",
 		})
 	}
 
@@ -149,8 +152,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Get default team for user
-	// TODO: Validate body.Blob via regex
-	// TODO: Make sure user is owner of team (currently only team owners can create projects for the team)
+	// NOTE: Currently only the owner of a team can create a project in it
 	blob := body.Blob
 	var projectName string
 	var teamName string
@@ -165,10 +167,10 @@ func CreateProject(c *fiber.Ctx) error {
 	var teamFilter bson.M
 	if teamName == "" {
 		// Team name not provided, fetch by default team ID
-		teamFilter = bson.M{"_id": userData.DefaultTeamID}
+		teamFilter = bson.M{"_id": userData.DefaultTeamID, "owner_user_id": userID}
 	} else {
 		// Team name provided, fetch by team name
-		teamFilter = bson.M{"name": teamName}
+		teamFilter = bson.M{"name": teamName, "owner_user_id": userID}
 	}
 
 	var team models.Team
