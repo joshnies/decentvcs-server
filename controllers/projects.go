@@ -323,9 +323,18 @@ func UpdateOneProject(c *fiber.Ctx) error {
 
 	updateData := bson.M{}
 	if body.Name != "" {
+		// Validate
+		regex := regexp.MustCompile(`^[\w\-]+$`)
+		if !regex.MatchString(body.Name) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "Invalid name; must be alphanumeric with dashes",
+			})
+		}
+
 		updateData["name"] = body.Name
 	}
-	if body.DefaultBranchID != primitive.NilObjectID {
+	if !body.DefaultBranchID.IsZero() {
 		updateData["default_branch_id"] = body.DefaultBranchID
 	}
 
