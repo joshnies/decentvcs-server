@@ -16,6 +16,10 @@ type Project struct {
 	DefaultBranchID primitive.ObjectID `json:"default_branch_id,omitempty" bson:"default_branch_id,omitempty"`
 }
 
+type CreateProjectRequest struct {
+	Blob string `json:"blob" validate:"required"`
+}
+
 type InviteManyUsersDTO struct {
 	Emails []string `json:"emails"`
 }

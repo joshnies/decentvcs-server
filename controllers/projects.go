@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -110,9 +111,7 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 
 // Create a new project.
 //
-// Body:
-//
-// - name: Project name
+// Body: `CreateProjectRequest`
 //
 func CreateProject(c *fiber.Ctx) error {
 	// Get user ID
@@ -122,7 +121,7 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Parse body
-	var body models.Project
+	var body models.CreateProjectRequest
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
@@ -149,13 +148,30 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Get default team for user
-	teamID := body.TeamID
-	if teamID.IsZero() {
-		teamID = userData.DefaultTeamID
+	// TODO: Validate body.Blob via regex
+	// TODO: Make sure user is owner of team (currently only team owners can create projects for the team)
+	blob := body.Blob
+	var projectName string
+	var teamName string
+	if strings.Contains(blob, "/") {
+		parts := strings.Split(blob, "/")
+		projectName = parts[0]
+		teamName = parts[1]
+	} else {
+		projectName = blob
+	}
+
+	var teamFilter bson.M
+	if teamName == "" {
+		// Team name not provided, fetch by default team ID
+		teamFilter = bson.M{"_id": userData.DefaultTeamID}
+	} else {
+		// Team name provided, fetch by team name
+		teamFilter = bson.M{"name": teamName}
 	}
 
 	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, teamFilter).Decode(&team); err != nil {
 		fmt.Printf("Error getting default team for user with ID \"%s\": %v\n", userID, err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -169,8 +185,8 @@ func CreateProject(c *fiber.Ctx) error {
 	project := models.Project{
 		ID:              primitive.NewObjectID(),
 		CreatedAt:       time.Now().Unix(),
-		Name:            body.Name,
-		Blob:            fmt.Sprintf("%s/%s", team.Name, body.Name),
+		Name:            projectName,
+		Blob:            fmt.Sprintf("%s/%s", team.Name, projectName),
 		TeamID:          team.ID,
 		DefaultBranchID: branchId,
 	}
