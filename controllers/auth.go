@@ -35,7 +35,7 @@ func Authenticate(c *fiber.Ctx) error {
 			IPAddress: c.IP(),
 			// UserAgent: c.Get("User-Agent"),
 		},
-		Options: stytch.Options{IPMatchRequired: true},
+		// Options: stytch.Options{IPMatchRequired: true},
 	})
 	if err != nil {
 		return err
