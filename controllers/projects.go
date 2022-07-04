@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -14,6 +15,7 @@ import (
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/models"
+	"github.com/stytchauth/stytch-go/v5/stytch"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -472,7 +474,92 @@ func InviteManyUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Invite new users and add permission for existing users
+	// Loop through emails
+	for _, email := range body.Emails {
+		// Check if user exists
+		searchRes, err := config.StytchClient.Users.Search(&stytch.UsersSearchParams{
+			Limit: 1,
+			Query: &stytch.UsersSearchQuery{
+				Operator: stytch.UserSearchOperatorAND,
+				Operands: []json.Marshaler{
+					stytch.UsersSearchQueryEmailAddressFilter{EmailAddresses: []string{email}},
+				},
+			},
+		})
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		if len(searchRes.Results) == 0 {
+			// User does not exist in auth provider, invite them via email
+			inviteRes, err := config.StytchClient.MagicLinks.Email.Invite(&stytch.MagicLinksEmailInviteParams{
+				Email:                   email,
+				InviteExpirationMinutes: 1440, // 24 hours
+				Attributes: stytch.Attributes{
+					IPAddress: c.IP(),
+					UserAgent: c.Get("User-Agent"),
+				},
+			})
+			if err != nil {
+				fmt.Printf("Error sending invite to \"%s\" %v\n", email, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create user data in database with project role
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			userData := models.UserData{
+				UserID: inviteRes.UserID,
+				Roles: []models.RoleObject{
+					{
+						Role:      models.RoleCollab,
+						ProjectID: project.ID,
+					},
+				},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("Error creating user data for new invited user with ID \"%s\": %v\n", inviteRes.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			// User already exists in auth provider, get user data from database
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			var userData models.UserData
+			if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": searchRes.Results[0].UserID}).Decode(&userData); err != nil {
+				if errors.Is(err, mongo.ErrNoDocuments) {
+					fmt.Printf("User data not found while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+				} else {
+					fmt.Printf("Error getting user data while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+				}
+
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Add project role to user data
+			userData.Roles = append(userData.Roles, models.RoleObject{
+				Role:      models.RoleCollab,
+				ProjectID: project.ID,
+			})
+			if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"user_id": searchRes.Results[0].UserID}, bson.M{"$set": bson.M{"roles": userData.Roles}}); err != nil {
+				fmt.Printf("Error updating user data while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		}
+	}
 
 	return nil
 }
