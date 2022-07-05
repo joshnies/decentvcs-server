@@ -551,6 +551,22 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				})
 			}
 
+			// Skip this user if they already have a role for the project
+			skip := false
+			for _, r := range userData.Roles {
+				if r.ProjectID.Hex() == project.ID.Hex() {
+					skip = true
+					if config.I.Debug {
+						fmt.Printf("Skipped inviting user with ID \"%s\" to project \"%s\" since they already have a role for the project", project.Blob, stytchUser.UserID)
+					}
+
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+
 			// Add project role to user data
 			userData.Roles = append(userData.Roles, models.RoleObject{
 				Role:      models.RoleCollab,
