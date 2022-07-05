@@ -26,7 +26,6 @@ func main() {
 	config.InitConfig()
 	config.InitDatabase()
 	config.InitStorage()
-	config.InitEmailClient()
 	config.InitStytch()
 
 	// Create Fiber instance
