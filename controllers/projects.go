@@ -557,7 +557,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				if r.ProjectID.Hex() == project.ID.Hex() {
 					skip = true
 					if config.I.Debug {
-						fmt.Printf("Skipped inviting user with ID \"%s\" to project \"%s\" since they already have a role for the project", project.Blob, stytchUser.UserID)
+						fmt.Printf("Skipped inviting user with ID \"%s\" to project \"%s\" since they already have a role for the project\n", project.Blob, stytchUser.UserID)
 					}
 
 					break
