@@ -9,6 +9,16 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
+type EmailTemplatesConfig struct {
+	InviteExistingUser string
+}
+
+type EmailConfig struct {
+	SendGridAPIKey string
+	NoReplyEmail   string
+	Templates      EmailTemplatesConfig
+}
+
 type StytchConfig struct {
 	SessionDurationMinutes  int32
 	InviteExpirationMinutes int32
@@ -22,6 +32,7 @@ type Config struct {
 	Scheduler       *gocron.Scheduler
 	MaxInviteCount  int
 	Stytch          StytchConfig
+	Email           EmailConfig
 }
 
 // Global config instance
@@ -72,6 +83,12 @@ func InitConfig() {
 
 	inviteRedirectURL := os.Getenv("INVITE_REDIRECT_URL")
 
+	// SendGrid
+	sgApiKey := os.Getenv("SENDGRID_API_KEY")
+	if sgApiKey == "" {
+		log.Fatal("SENDGRID_API_KEY environment variable is not set")
+	}
+
 	I = Config{
 		Debug:           os.Getenv("DEBUG") == "1",
 		LogResponseBody: os.Getenv("DEBUG_RES") == "1",
@@ -82,6 +99,13 @@ func InitConfig() {
 			SessionDurationMinutes:  int32(sessionDurationMinutes),
 			InviteExpirationMinutes: int32(inviteExp),
 			InviteRedirectURL:       inviteRedirectURL,
+		},
+		Email: EmailConfig{
+			SendGridAPIKey: sgApiKey,
+			NoReplyEmail:   "no-reply@decentvcs.com",
+			Templates: EmailTemplatesConfig{
+				InviteExistingUser: "d-14be2f90a89745fbb53d531e80fd9a14",
+			},
 		},
 	}
 }

@@ -15,6 +15,8 @@ import (
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/models"
+	"github.com/sendgrid/sendgrid-go"
+	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -532,15 +534,16 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			}
 		} else {
 			// User already exists in auth provider, get user data from database
+			stytchUser := searchRes.Results[0]
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			var userData models.UserData
-			if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": searchRes.Results[0].UserID}).Decode(&userData); err != nil {
+			if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
 				if errors.Is(err, mongo.ErrNoDocuments) {
-					fmt.Printf("User data not found while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+					fmt.Printf("User data not found while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
 				} else {
-					fmt.Printf("Error getting user data while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+					fmt.Printf("Error getting user data while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
 				}
 
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -553,8 +556,30 @@ func InviteManyUsers(c *fiber.Ctx) error {
 				Role:      models.RoleCollab,
 				ProjectID: project.ID,
 			})
-			if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"user_id": searchRes.Results[0].UserID}, bson.M{"$set": bson.M{"roles": userData.Roles}}); err != nil {
-				fmt.Printf("Error updating user data while inviting existing user with ID \"%s\" to a project: %v\n", searchRes.Results[0].UserID, err)
+			if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"user_id": stytchUser.UserID}, bson.M{"$set": bson.M{"roles": userData.Roles}}); err != nil {
+				fmt.Printf("Error updating user data while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Send user an email saying that they've been invited
+			m := sgmail.NewV3Mail()
+			m.SetTemplateID(config.I.Email.Templates.InviteExistingUser)
+			from := sgmail.NewEmail("Decent", config.I.Email.NoReplyEmail)
+			m.SetFrom(from)
+			p := sgmail.NewPersonalization()
+			to := sgmail.NewEmail(fmt.Sprintf("%s %s", stytchUser.Name.FirstName, stytchUser.Name.LastName), stytchUser.Emails[0].Email)
+			p.AddTos(to)
+			p.SetDynamicTemplateData("project.name", project.Name)
+			p.SetDynamicTemplateData("project.blob", project.Blob)
+			m.AddPersonalizations(p)
+			sgreq := sendgrid.GetRequest(config.I.Email.SendGridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
+			sgreq.Method = "POST"
+			sgreq.Body = sgmail.GetRequestBody(m)
+			_, err := sendgrid.API(sgreq)
+			if err != nil {
+				fmt.Printf("Error sending invite email to existing user with ID \"%s\": %v\n", stytchUser.UserID, err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
