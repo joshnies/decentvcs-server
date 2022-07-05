@@ -587,8 +587,8 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			p := sgmail.NewPersonalization()
 			to := sgmail.NewEmail(fmt.Sprintf("%s %s", stytchUser.Name.FirstName, stytchUser.Name.LastName), stytchUser.Emails[0].Email)
 			p.AddTos(to)
-			p.SetDynamicTemplateData("project.name", project.Name)
-			p.SetDynamicTemplateData("project.blob", project.Blob)
+			p.SetDynamicTemplateData("project_name", project.Name)
+			p.SetDynamicTemplateData("project_blob", project.Blob)
 			m.AddPersonalizations(p)
 			sgreq := sendgrid.GetRequest(config.I.Email.SendGridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
 			sgreq.Method = "POST"
