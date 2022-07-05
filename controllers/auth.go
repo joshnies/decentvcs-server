@@ -31,9 +31,11 @@ func Authenticate(c *fiber.Ctx) error {
 		Token:                  body.Token,
 		SessionToken:           body.SessionToken,
 		SessionDurationMinutes: config.I.Stytch.SessionDurationMinutes,
-		// TODO: Add IP matching
-		// Options:    stytch.Options{IPMatchRequired: true},
-		// Attributes: stytch.Attributes{IPAddress: "10.0.0.0"},
+		Attributes: stytch.Attributes{
+			IPAddress: c.IP(),
+			// UserAgent: c.Get("User-Agent"),
+		},
+		// Options: stytch.Options{IPMatchRequired: true},
 	})
 	if err != nil {
 		return err
@@ -86,7 +88,8 @@ func Authenticate(c *fiber.Ctx) error {
 		}
 	}
 
-	// Get or create user data from database
+	// Get or create user data from database.
+	// NOTE: User data is fetched only to ensure it's there.
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchres.UserID}).Decode(&userData); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
