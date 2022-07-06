@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/middleware"
 	"github.com/joshnies/decent-vcs/routes"
 )
 
@@ -40,10 +39,11 @@ func main() {
 
 	// Define routes
 	routes.RouteAuth(app.Group("/"))
-	routes.RouteProjects(app.Group("/projects", middleware.IsAuthenticated))
-	routes.RouteCommits(app.Group("/projects/:pid/commits", middleware.IsAuthenticated, middleware.HasProjectAccess))
-	routes.RouteBranches(app.Group("/projects/:pid/branches", middleware.IsAuthenticated, middleware.HasProjectAccess))
-	routes.RouteStorage(app.Group("/projects/:pid/storage", middleware.IsAuthenticated, middleware.HasProjectAccess))
+	routes.RouteProjects(app.Group("/projects"))
+	routes.RouteCommits(app.Group("/projects/:pid/commits"))
+	routes.RouteBranches(app.Group("/projects/:pid/branches"))
+	routes.RouteStorage(app.Group("/projects/:pid/storage"))
+	routes.RouteStytch(app.Group("/stytch"))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.I.Port))
