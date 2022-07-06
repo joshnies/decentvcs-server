@@ -46,6 +46,13 @@ func Lock(c *fiber.Ctx) error {
 		})
 	}
 
+	if len(reqBody.Paths) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "No paths provided",
+		})
+	}
+
 	// Get branch
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -61,7 +68,7 @@ func Lock(c *fiber.Ctx) error {
 	// Add locked paths to branch
 	// NOTE: Silently ignores paths that are already locked
 	newLockedPaths := lo.Uniq(append(branch.LockedPaths, reqBody.Paths...))
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, &models.Branch{LockedPaths: newLockedPaths}); err != nil {
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locked_paths": newLockedPaths}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -97,6 +104,13 @@ func Unlock(c *fiber.Ctx) error {
 		})
 	}
 
+	if len(reqBody.Paths) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "No paths provided",
+		})
+	}
+
 	// Get branch
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -115,7 +129,7 @@ func Unlock(c *fiber.Ctx) error {
 		return !lo.Contains(reqBody.Paths, pathToRm)
 	})
 
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, &models.Branch{LockedPaths: newLockedPaths}); err != nil {
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locked_paths": newLockedPaths}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

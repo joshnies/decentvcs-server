@@ -27,6 +27,7 @@ func main() {
 	config.InitDatabase()
 	config.InitStorage()
 	config.InitStytch()
+	config.InitValidator()
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{

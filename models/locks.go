@@ -1,5 +1,5 @@
 package models
 
 type LockOrUnlockRequest struct {
-	Paths []string `json:"paths" validate:"required,min=1"`
+	Paths []string `json:"paths" validate:"required"`
 }
