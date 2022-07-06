@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/models"
-	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -65,10 +65,47 @@ func Lock(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get user ID
+	userID, err := auth.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
+	locks := make(map[string]string)
+	if branch.Locks != nil {
+		locks = branch.Locks
+	}
+
+	for _, path := range reqBody.Paths {
+		// Check if file is already locked
+		if val, ok := branch.Locks[path]; ok {
+			lockedBy := "(unknown)"
+
+			// Get name of user who locked the file
+			if val != userID {
+				stytchUser, err := auth.GetStytchUserByID(val)
+				if err != nil {
+					fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
+				} else {
+					lockedBy = stytchUser.Name.FirstName + " " + stytchUser.Name.LastName
+				}
+			} else {
+				lockedBy = "you"
+			}
+
+			// Return error
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": fmt.Sprintf("Path \"%s\" is already locked by %s", path, lockedBy),
+			})
+		}
+
+		// File is available to lock
+		locks[path] = userID
+	}
+
 	// Add locked paths to branch
-	// NOTE: Silently ignores paths that are already locked
-	newLockedPaths := lo.Uniq(append(branch.LockedPaths, reqBody.Paths...))
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locked_paths": newLockedPaths}}); err != nil {
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": locks}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -123,13 +160,58 @@ func Unlock(c *fiber.Ctx) error {
 		})
 	}
 
-	// Remove locked paths from branch
-	// NOTE: Silently ignores paths that are not locked
-	newLockedPaths := lo.Filter(branch.LockedPaths, func(pathToRm string, _ int) bool {
-		return !lo.Contains(reqBody.Paths, pathToRm)
-	})
+	if branch.Locks == nil || len(branch.Locks) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Branch has no locks",
+		})
+	}
 
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locked_paths": newLockedPaths}}); err != nil {
+	// Get user ID
+	userID, err := auth.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
+	// Remove locked paths from branch
+	for _, path := range reqBody.Paths {
+		// Make sure user is the current locker
+		if val, ok := branch.Locks[path]; ok {
+			if val != userID {
+				lockedBy := "(unknown)"
+
+				// Get name of user who locked the file
+				if val != userID {
+					stytchUser, err := auth.GetStytchUserByID(val)
+					if err != nil {
+						fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
+					} else {
+						lockedBy = stytchUser.Name.FirstName + " " + stytchUser.Name.LastName
+					}
+				} else {
+					lockedBy = "you"
+				}
+
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "Bad request",
+					"message": fmt.Sprintf("The file \"%s\" was locked by %s (not you), and cannot be modified until "+
+						"the user unlocks it. You may forcefully unlock the file if you are an admin on this project.",
+						path,
+						lockedBy,
+					),
+				})
+			}
+
+			delete(branch.Locks, path)
+		} else {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": fmt.Sprintf("Path \"%s\" is already unlocked", path),
+			})
+		}
+	}
+
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": branch.Locks}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

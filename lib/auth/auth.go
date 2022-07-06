@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
@@ -14,4 +15,14 @@ func GetUserID(c *fiber.Ctx) (string, error) {
 	}
 
 	return userVal.(stytch.User).UserID, nil
+}
+
+// Get a user from Stytch by ID.
+func GetStytchUserByID(userID string) (*stytch.UsersGetResponse, error) {
+	res, err := config.StytchClient.Users.Get(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
