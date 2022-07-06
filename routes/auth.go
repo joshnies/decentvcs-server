@@ -8,5 +8,5 @@ import (
 
 func RouteAuth(router fiber.Router) {
 	router.Post("/authenticate", controllers.Authenticate)
-	router.Delete("/session", middleware.ValidateAuth, controllers.RevokeSession)
+	router.Delete("/session", middleware.IsAuthenticated, controllers.RevokeSession)
 }

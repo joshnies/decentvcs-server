@@ -8,10 +8,12 @@ import (
 )
 
 func RouteProjects(router fiber.Router) {
+	router.Use(middleware.IsAuthenticated)
+
 	router.Post("/", controllers.CreateProject)
 	router.Get("/blob/:oa/:pname", controllers.GetOneProjectByBlob)
-	router.Get("/:pid", controllers.GetOneProject, middleware.HasProjectAccess)
-	router.Post("/:pid", controllers.UpdateOneProject, middleware.HasProjectAccess)
-	router.Delete("/:pid", controllers.DeleteOneProject, middleware.HasProjectAccessWithRole(models.RoleOwner))
-	router.Post("/:pid/invite", controllers.InviteManyUsers, middleware.HasProjectAccessWithRole(models.RoleAdmin))
+	router.Get("/:pid", middleware.HasProjectAccess, controllers.GetOneProject)
+	router.Post("/:pid", middleware.HasProjectAccess, controllers.UpdateOneProject)
+	router.Delete("/:pid", middleware.HasProjectAccessWithRole(models.RoleOwner), controllers.DeleteOneProject)
+	router.Post("/:pid/invite", middleware.HasProjectAccessWithRole(models.RoleAdmin), controllers.InviteManyUsers)
 }

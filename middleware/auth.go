@@ -10,7 +10,7 @@ import (
 )
 
 // Middleware that validates the Stytch session.
-func ValidateAuth(c *fiber.Ctx) error {
+func IsAuthenticated(c *fiber.Ctx) error {
 	sessionToken := c.Get("X-Session-Token")
 	if sessionToken == "" {
 		c.Status(401).JSON(map[string]string{

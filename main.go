@@ -39,10 +39,10 @@ func main() {
 
 	// Define routes
 	routes.RouteAuth(app.Group("/"))
-	routes.RouteProjects(app.Group("/projects", middleware.ValidateAuth))
-	routes.RouteCommits(app.Group("/projects/:pid/commits", middleware.ValidateAuth, middleware.HasProjectAccess))
-	routes.RouteBranches(app.Group("/projects/:pid/branches", middleware.ValidateAuth, middleware.HasProjectAccess))
-	routes.RouteStorage(app.Group("/projects/:pid/storage", middleware.ValidateAuth, middleware.HasProjectAccess))
+	routes.RouteProjects(app.Group("/projects", middleware.IsAuthenticated))
+	routes.RouteCommits(app.Group("/projects/:pid/commits", middleware.IsAuthenticated, middleware.HasProjectAccess))
+	routes.RouteBranches(app.Group("/projects/:pid/branches", middleware.IsAuthenticated, middleware.HasProjectAccess))
+	routes.RouteStorage(app.Group("/projects/:pid/storage", middleware.IsAuthenticated, middleware.HasProjectAccess))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.I.Port))
