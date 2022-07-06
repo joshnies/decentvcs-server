@@ -23,24 +23,20 @@ type Commit struct {
 }
 
 // Serialized version of Commit (ObjectID is replaced with string)
-type CommitSerialized struct {
-	ID        string `json:"_id,omitempty"`
-	CreatedAt int64  `json:"created_at,omitempty"`
-	Index     int    `json:"index,omitempty"`
-	ProjectID string `json:"project_id,omitempty"`
-	BranchID  string `json:"branch_id,omitempty"`
-	Message   string `json:"message,omitempty"`
+type CreateCommitRequest struct {
+	BranchID string `json:"branch_id" validate:"required"`
+	Message  string `json:"message"`
 	// Array of fs paths to created files (uploaded as snapshots)
-	CreatedFiles []string `json:"created_files,omitempty"`
+	CreatedFiles []string `json:"created_files"`
 	// Array of fs paths to modified files (uploaded as snapshots)
-	ModifiedFiles []string `json:"modified_files,omitempty"`
+	ModifiedFiles []string `json:"modified_files"`
 	// Array of fs paths to deleted files
-	DeletedFiles []string `json:"deleted_files,omitempty"`
+	DeletedFiles []string `json:"deleted_files"`
 	// Map of file path to hash
-	HashMap map[string]string `json:"hash_map,omitempty"`
+	HashMap map[string]string `json:"hash_map" validate:"required"`
 	// ID of the user who made the commit.
 	// If empty, then the system created it.
-	AuthorID string `json:"author_id,omitempty"`
+	AuthorID string `json:"author_id"`
 }
 
 type CommitWithBranch struct {

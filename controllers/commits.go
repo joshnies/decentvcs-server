@@ -374,7 +374,7 @@ func GetOneCommitByID(c *fiber.Ctx) error {
 // Create a new commit.
 func CreateOneCommit(c *fiber.Ctx) error {
 	// Get user ID
-	userId, err := auth.GetUserID(c)
+	userID, err := auth.GetUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
@@ -382,8 +382,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get project ID
-	pid := c.Params("pid")
-	projectObjId, err := primitive.ObjectIDFromHex(pid)
+	pidStr := c.Params("pid")
+	pid, err := primitive.ObjectIDFromHex(pidStr)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -393,7 +393,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var reqBody models.CommitSerialized
+	var reqBody models.CreateCommitRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -402,16 +402,16 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		})
 	}
 
-	// Make sure a branch ID was specified
-	if reqBody.BranchID == "" {
+	// Validate request body
+	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
-			"message": "branch_id is required",
+			"message": err.Error(),
 		})
 	}
 
-	// Create branch ObjectID
-	branchObjId, err := primitive.ObjectIDFromHex(reqBody.BranchID)
+	// Get branch ID
+	bid, err := primitive.ObjectIDFromHex(reqBody.BranchID)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -426,7 +426,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"project_id": projectObjId,
+				"project_id": pid,
 				"deleted_at": bson.M{"$exists": false},
 			},
 		},
@@ -463,8 +463,8 @@ func CreateOneCommit(c *fiber.Ctx) error {
 
 	// Decode first branch
 	cur.Next(ctx)
-	var branchWithLastCommit models.BranchWithCommit
-	err = cur.Decode(&branchWithLastCommit)
+	var branch models.BranchWithCommit
+	err = cur.Decode(&branch)
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -472,19 +472,34 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if any created/modified/delete file in new commit references a file locked by another user
+	combinedFiles := reqBody.CreatedFiles
+	combinedFiles = append(combinedFiles, reqBody.ModifiedFiles...)
+	combinedFiles = append(combinedFiles, reqBody.DeletedFiles...)
+	for _, path := range combinedFiles {
+		if lockedBy, ok := branch.Locks[path]; ok {
+			if lockedBy != userID {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error":   "Bad request",
+					"message": fmt.Sprintf("File \"%s\" is locked by %s", path, lockedBy),
+				})
+			}
+		}
+	}
+
 	// Create commit object
 	commit := models.Commit{
 		ID:            primitive.NewObjectID(),
 		CreatedAt:     time.Now().Unix(),
-		Index:         branchWithLastCommit.Commit.Index + 1,
-		ProjectID:     projectObjId,
-		BranchID:      branchObjId,
+		Index:         branch.Commit.Index + 1,
+		ProjectID:     pid,
+		BranchID:      bid,
 		Message:       reqBody.Message,
 		CreatedFiles:  reqBody.CreatedFiles,
 		ModifiedFiles: reqBody.ModifiedFiles,
 		DeletedFiles:  reqBody.DeletedFiles,
 		HashMap:       reqBody.HashMap,
-		AuthorID:      userId,
+		AuthorID:      userID,
 	}
 
 	// Insert commit into database
@@ -498,7 +513,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Update branch to point to new commit
-	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branchObjId}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
+	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
 	if err != nil {
 		fmt.Println("Failed to update branch.")
 		fmt.Println(err)
