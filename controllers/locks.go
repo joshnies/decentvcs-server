@@ -2,16 +2,21 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/lib/branch_utils"
 	"github.com/joshnies/decent-vcs/models"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Lock one or many files from edits by other users.
@@ -118,6 +123,16 @@ func Lock(c *fiber.Ctx) error {
 
 // Remove the lock on one or many files, allowing other users on the project to edit them again.
 func Unlock(c *fiber.Ctx) error {
+	// Get project ID
+	pidStr := c.Params("pid")
+	pid, err := primitive.ObjectIDFromHex(pidStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
 	// Get branch ID
 	bidStr := c.Params("bid")
 	bid, err := primitive.ObjectIDFromHex(bidStr)
@@ -150,14 +165,17 @@ func Unlock(c *fiber.Ctx) error {
 	}
 
 	// Get branch
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	branch, err := branch_utils.GetBranchWithCommit(pid, bid)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "Not found",
+				"message": "Branch not found",
+			})
+		}
 
-	var branch models.Branch
-	if err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"_id": bid}).Decode(&branch); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not found",
-			"message": "Branch not found",
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
 		})
 	}
 
@@ -174,11 +192,36 @@ func Unlock(c *fiber.Ctx) error {
 		return err
 	}
 
+	var filePaths []string
+	for _, path := range reqBody.Paths {
+		// Make sure path exists in branch remote
+		if _, ok := branch.Commit.HashMap[path]; !ok {
+			// File path does not exist in branch remote, check if path is a directory
+			if lo.Contains(lo.Keys(branch.Commit.HashMap), path) {
+				// Path is a directory, add all committed files in directory
+				for _, key := range lo.Keys(branch.Commit.HashMap) {
+					if strings.HasPrefix(key, path) {
+						filePaths = append(filePaths, key)
+					}
+				}
+
+				continue
+			}
+
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": fmt.Sprintf("File not found in remote for branch \"%s\"", branch.Name),
+			})
+		}
+
+		filePaths = append(filePaths, path)
+	}
+
 	// Get "force" query param
 	force := c.Query("force") == "true"
 
 	// Remove locked paths from branch
-	for _, path := range reqBody.Paths {
+	for _, path := range filePaths {
 		// Make sure user is the current locker
 		if val, ok := branch.Locks[path]; ok {
 			if val != userID {
@@ -232,6 +275,9 @@ func Unlock(c *fiber.Ctx) error {
 	}
 
 	// Update branch in database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": branch.Locks}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

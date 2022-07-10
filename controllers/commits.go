@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/lib/branch_utils"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -421,52 +422,9 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
-		{
-			"$match": bson.M{
-				"project_id": pid,
-				"deleted_at": bson.M{"$exists": false},
-			},
-		},
-		{
-			"$lookup": bson.M{
-				"from":         "commits",
-				"localField":   "commit_id",
-				"foreignField": "_id",
-				"as":           "commit",
-			},
-		},
-		{
-			"$unwind": "$commit",
-		},
-		{
-			"$unset": "commit_id",
-		},
-		{
-			"$sort": bson.M{
-				"commit.index": -1,
-			},
-		},
-		{
-			"$limit": 1,
-		},
-	})
+	branch, err := branch_utils.GetBranchWithCommit(pid, bid)
 	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	defer cur.Close(ctx)
-
-	// Decode first branch
-	cur.Next(ctx)
-	var branch models.BranchWithCommit
-	err = cur.Decode(&branch)
-	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Error getting branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -503,6 +461,9 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Insert commit into database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
 	if err != nil {
 		fmt.Println("Failed to insert commit into database.")
