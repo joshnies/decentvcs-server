@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -173,35 +174,54 @@ func Unlock(c *fiber.Ctx) error {
 		return err
 	}
 
+	// Get "force" query param
+	force := c.Query("force") == "true"
+
 	// Remove locked paths from branch
 	for _, path := range reqBody.Paths {
 		// Make sure user is the current locker
 		if val, ok := branch.Locks[path]; ok {
 			if val != userID {
-				lockedBy := "(unknown)"
-
-				// Get name of user who locked the file
-				if val != userID {
-					stytchUser, err := auth.GetStytchUserByID(val)
-					if err != nil {
-						fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
-					} else {
-						lockedBy = stytchUser.Name.FirstName + " " + stytchUser.Name.LastName
+				// User is not the file locker.
+				//
+				// Return error if:
+				// - "force" was not provided
+				// - "force" was provided but user is not an admin or higher for the project
+				if force {
+					canForceUnlock, err := acl.HasProjectAccess(userID, branch.ProjectID.Hex(), models.RoleAdmin)
+					if err != nil || !canForceUnlock {
+						return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+							"error":   "Forbidden",
+							"message": "You do not have permission to force unlock files",
+						})
 					}
 				} else {
-					lockedBy = "you"
-				}
+					lockedBy := "(unknown)"
 
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error": "Bad request",
-					"message": fmt.Sprintf("The file \"%s\" was locked by %s (not you), and cannot be modified until "+
-						"the user unlocks it. You may forcefully unlock the file if you are an admin on this project.",
-						path,
-						lockedBy,
-					),
-				})
+					// Get name of user who locked the file
+					if val != userID {
+						stytchUser, err := auth.GetStytchUserByID(val)
+						if err != nil {
+							fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
+						} else {
+							lockedBy = stytchUser.Name.FirstName + " " + stytchUser.Name.LastName
+						}
+					} else {
+						lockedBy = "you"
+					}
+
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+						"error": "Bad request",
+						"message": fmt.Sprintf("The file \"%s\" was locked by %s (not you), and cannot be modified until "+
+							"the user unlocks it. You may forcefully unlock the file if you are an admin on this project.",
+							path,
+							lockedBy,
+						),
+					})
+				}
 			}
 
+			// Delete file lock from branch (a.k.a. unlock the file)
 			delete(branch.Locks, path)
 		} else {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -211,6 +231,7 @@ func Unlock(c *fiber.Ctx) error {
 		}
 	}
 
+	// Update branch in database
 	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": branch.Locks}}); err != nil {
 		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
