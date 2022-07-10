@@ -93,26 +93,27 @@ func Lock(c *fiber.Ctx) error {
 	var filePaths []string
 	for _, path := range reqBody.Paths {
 		// Make sure path exists in branch remote
-		if _, ok := branch.Commit.HashMap[path]; !ok {
+		if _, ok := branch.Commit.HashMap[path]; ok {
+			// File path exists
+			filePaths = append(filePaths, path)
+		} else {
 			// File path does not exist in branch remote, check if path is a directory
-			if lo.Contains(lo.Keys(branch.Commit.HashMap), path) {
+			found := false
+			for _, key := range lo.Keys(branch.Commit.HashMap) {
 				// Path is a directory, add all committed files in directory
-				for _, key := range lo.Keys(branch.Commit.HashMap) {
-					if strings.HasPrefix(key, path) {
-						filePaths = append(filePaths, key)
-					}
+				if strings.HasPrefix(key, path) {
+					filePaths = append(filePaths, key)
+					found = true
 				}
-
-				continue
 			}
 
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": fmt.Sprintf("File not found in remote for branch \"%s\"", branch.Name),
-			})
+			if !found {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error":   "Bad request",
+					"message": fmt.Sprintf("File \"%s\" is not a file or directory in remote branch \"%s\"", path, branch.Name),
+				})
+			}
 		}
-
-		filePaths = append(filePaths, path)
 	}
 
 	locks := make(map[string]string)
@@ -233,11 +234,37 @@ func Unlock(c *fiber.Ctx) error {
 		return err
 	}
 
+	var filePaths []string
+	for _, path := range reqBody.Paths {
+		// Make sure path exists in branch remote
+		if _, ok := branch.Commit.HashMap[path]; ok {
+			// File path exists
+			filePaths = append(filePaths, path)
+		} else {
+			// File path does not exist in branch remote, check if path is a directory
+			found := false
+			for _, key := range lo.Keys(branch.Commit.HashMap) {
+				// Path is a directory, add all committed files in directory
+				if strings.HasPrefix(key, path) {
+					filePaths = append(filePaths, key)
+					found = true
+				}
+			}
+
+			if !found {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error":   "Bad request",
+					"message": fmt.Sprintf("File \"%s\" is not a file or directory in remote branch \"%s\"", path, branch.Name),
+				})
+			}
+		}
+	}
+
 	// Get "force" query param
 	force := c.Query("force") == "true"
 
 	// Remove locked paths from branch
-	for _, path := range reqBody.Paths {
+	for _, path := range filePaths {
 		// Make sure user is the current locker
 		if val, ok := branch.Locks[path]; ok {
 			if val != userID {
