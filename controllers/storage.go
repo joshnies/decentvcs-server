@@ -411,7 +411,6 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 			"error": "Internal server error",
 		})
 	}
-	defer cur.Close(ctx)
 
 	for cur.Next(ctx) {
 		var commit models.Commit
@@ -425,6 +424,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 		fileHashes = append(fileHashes, lo.Values(commit.HashMap)...)
 		fileHashes = lo.Uniq(fileHashes)
 	}
+	cur.Close(ctx)
 
 	// Search for unused objects in storage
 	hasMore := true
@@ -447,7 +447,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 		hasMore = res.IsTruncated
 		startAfter = res.NextContinuationToken
 		for _, metadata := range res.Contents {
-			if !lo.Contains(fileHashes, *metadata.Key) {
+			if !lo.Contains(fileHashes, strings.Replace(*metadata.Key, prefix, "", 1)) {
 				// Object in storage no longer exists in any commit's hash map in the database
 				// Delete it
 				_, err := config.SI.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
