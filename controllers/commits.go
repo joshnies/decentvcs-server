@@ -554,12 +554,29 @@ func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Delete commits after specified index
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Get commit with index
+	var afterCommit models.Commit
+	if err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"branch_id": bid, "index": after}).Decode(&afterCommit); err != nil {
+		fmt.Printf("[DeleteManyCommitsInBranch] Error getting commit with index: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Update branch to point to commit with specified index
+	if _, err := config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{"commit_id": afterCommit.ID}}); err != nil {
+		fmt.Printf("[DeleteManyCommitsInBranch] Error updating branch: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Delete commits after specified index
 	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"branch_id": bid, "index": bson.M{"$gt": after}}); err != nil {
-		fmt.Printf("Error deleting many commits after: %v\n", err)
+		fmt.Printf("[DeleteManyCommitsInBranch] Error deleting many commits after: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
