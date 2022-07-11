@@ -523,13 +523,28 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 	return c.JSON(commit)
 }
 
-// Delete many commits after the specified index.
+// Delete many commits after the specified index in the specified branch.
+//
+// URL params:
+//
+// - pid: project ID
+//
+// - bid: branch ID
 //
 // Query params:
 //
 // - after: commit index to delete commits after (required, since it's currently the only param)
 //
-func DeleteManyCommits(c *fiber.Ctx) error {
+func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
+	// Get branch ID
+	bid, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid branch ID; must be an ObjectID hexadecimal",
+		})
+	}
+
 	// Get "after" query param
 	after, err := strconv.Atoi(c.Query("after"))
 	if err != nil || after <= 0 {
@@ -543,7 +558,7 @@ func DeleteManyCommits(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"index": bson.M{"$gt": after}}); err != nil {
+	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"branch_id": bid, "index": bson.M{"$gt": after}}); err != nil {
 		fmt.Printf("Error deleting many commits after: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
