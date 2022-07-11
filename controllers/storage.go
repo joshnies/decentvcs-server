@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/models"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -382,5 +383,88 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Success",
+	})
+}
+
+// Delete all unused objects from storage based on commit hash maps.
+func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
+	// Get project ID
+	pidStr := c.Params("pid")
+	pid, err := primitive.ObjectIDFromHex(pidStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid project ID",
+		})
+	}
+
+	// Get unique file hashes from commit hash maps in database
+	// TODO: Optimize this query
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	var fileHashes []string
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": pid})
+	if err != nil {
+		fmt.Printf("Error while finding all commits for project with ID \"%s\": %v\n", pidStr, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	for cur.Next(ctx) {
+		var commit models.Commit
+		err := cur.Decode(&commit)
+		if err != nil {
+			fmt.Printf("Error while decoding commit: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+		fileHashes = append(fileHashes, lo.Values(commit.HashMap)...)
+		fileHashes = lo.Uniq(fileHashes)
+	}
+	cur.Close(ctx)
+
+	// Search for unused objects in storage
+	hasMore := true
+	var startAfter *string
+
+	for hasMore {
+		prefix := fmt.Sprintf("%s/", pidStr)
+		res, err := config.SI.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:     &config.SI.Bucket,
+			Prefix:     &prefix,
+			StartAfter: startAfter,
+		})
+		if err != nil {
+			fmt.Printf("Error listing all objects in storage for project with ID \"%s\": %v\n", pidStr, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		hasMore = res.IsTruncated
+		startAfter = res.NextContinuationToken
+		for _, metadata := range res.Contents {
+			if !lo.Contains(fileHashes, strings.Replace(*metadata.Key, prefix, "", 1)) {
+				// Object in storage no longer exists in any commit's hash map in the database
+				// Delete it
+				_, err := config.SI.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &config.SI.Bucket,
+					Key:    metadata.Key,
+				})
+				if err != nil {
+					fmt.Printf("Error deleting unused object \"%s\" from storage: %v\n", *metadata.Key, err)
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+						"error": "Internal server error",
+					})
+				}
+			}
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "All unused files deleted successfully",
 	})
 }

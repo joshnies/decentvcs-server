@@ -522,3 +522,67 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 	commit.ID = commitId
 	return c.JSON(commit)
 }
+
+// Delete many commits after the specified index in the specified branch.
+//
+// URL params:
+//
+// - pid: project ID
+//
+// - bid: branch ID
+//
+// Query params:
+//
+// - after: commit index to delete commits after (required, since it's currently the only param)
+//
+func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
+	// Get branch ID
+	bid, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid branch ID; must be an ObjectID hexadecimal",
+		})
+	}
+
+	// Get "after" query param
+	after, err := strconv.Atoi(c.Query("after"))
+	if err != nil || after <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid query param \"after\"; must be a positive integer",
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get commit with index
+	var afterCommit models.Commit
+	if err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"branch_id": bid, "index": after}).Decode(&afterCommit); err != nil {
+		fmt.Printf("[DeleteManyCommitsInBranch] Error getting commit with index: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Update branch to point to commit with specified index
+	if _, err := config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{"commit_id": afterCommit.ID}}); err != nil {
+		fmt.Printf("[DeleteManyCommitsInBranch] Error updating branch: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Delete commits after specified index
+	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"branch_id": bid, "index": bson.M{"$gt": after}}); err != nil {
+		fmt.Printf("[DeleteManyCommitsInBranch] Error deleting many commits after: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Successfully deleted commits",
+	})
+}

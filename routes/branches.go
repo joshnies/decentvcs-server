@@ -16,6 +16,7 @@ func RouteBranches(router fiber.Router) {
 	router.Post("/:bid", controllers.UpdateOneBranch)
 	router.Delete("/:bid", controllers.DeleteOneBranch)
 	router.Get("/:bid/commits", controllers.GetManyCommitsForBranch)
+	router.Delete("/:bid/commits", controllers.DeleteManyCommitsInBranch)
 
 	RouteLocks(router.Group("/:bid/locks"))
 }
