@@ -12,4 +12,5 @@ func RouteStorage(router fiber.Router) {
 	router.Post("/presign/many", controllers.PresignManyGET)
 	router.Post("/presign/:method", controllers.PresignOne)
 	router.Post("/multipart/complete", controllers.CompleteMultipartUpload)
+	router.Delete("/unused", controllers.DeleteUnusedStorageObjects)
 }
