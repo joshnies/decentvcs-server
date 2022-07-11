@@ -398,23 +398,13 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get branch ID
-	bidStr := c.Params("bid")
-	bid, err := primitive.ObjectIDFromHex(bidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch ID",
-		})
-	}
-
 	// Get unique file hashes from commit hash maps in database
 	// TODO: Optimize this query
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	var fileHashes []string
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project": pid, "branch": bid})
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": pid})
 	if err != nil {
 		fmt.Printf("Error while finding all commits for project with ID \"%s\": %v\n", pidStr, err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
