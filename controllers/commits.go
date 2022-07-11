@@ -522,3 +522,35 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 	commit.ID = commitId
 	return c.JSON(commit)
 }
+
+// Delete many commits after the specified index.
+//
+// Query params:
+//
+// - after: commit index to delete commits after (required, since it's currently the only param)
+//
+func DeleteManyCommits(c *fiber.Ctx) error {
+	// Get "after" query param
+	after, err := strconv.Atoi(c.Query("after"))
+	if err != nil || after <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid query param \"after\"; must be a positive integer",
+		})
+	}
+
+	// Delete commits after specified index
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"index": bson.M{"$gt": after}}); err != nil {
+		fmt.Printf("Error deleting many commits after: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Successfully deleted commits",
+	})
+}
