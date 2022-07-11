@@ -431,7 +431,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 	var startAfter *string
 
 	for hasMore {
-		prefix := fmt.Sprintf("%s/", pid)
+		prefix := fmt.Sprintf("%s/", pidStr)
 		res, err := config.SI.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket:     &config.SI.Bucket,
 			Prefix:     &prefix,
