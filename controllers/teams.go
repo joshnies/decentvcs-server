@@ -1,28 +1,167 @@
 package controllers
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
 
 // Get one team.
-func GetOneTeam(c *fiber.Ctx) {
-	// TODO
+func GetOneTeam(c *fiber.Ctx) error {
+	// Get team ID
+	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid team ID",
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get team
+	var team models.Team
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not found",
+			"message": "Team not found",
+		})
+	}
+
+	return c.JSON(team)
 }
 
 // Get many teams.
-func GetManyTeams(c *fiber.Ctx) {
-	// TODO
+func GetManyTeams(c *fiber.Ctx) error {
+	// Get pagination query parameters
+	var skip int64 = 0
+	var limit int64 = 25
+
+	if c.Query("skip") != "" {
+		skip, _ = strconv.ParseInt(c.Query("skip"), 10, 64)
+	}
+
+	if c.Query("limit") != "" {
+		limit, _ = strconv.ParseInt(c.Query("limit"), 10, 64)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get all teams (paginated)
+	var teams []models.Team
+	cur, err := config.MI.DB.Collection("teams").Find(ctx, bson.M{}, &options.FindOptions{
+		Skip:  &skip,
+		Limit: &limit,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not found",
+			"message": "Team not found",
+		})
+	}
+
+	cur.All(ctx, &teams)
+
+	return c.JSON(teams)
 }
 
 // Create a new team.
-func CreateTeam(c *fiber.Ctx) {
-	// TODO
+func CreateTeam(c *fiber.Ctx) error {
+	// Get user ID
+	userID, err := auth.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Parse request body
+	var reqBody models.CreateTeamRequest
+	if err := c.BodyParser(&reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid request body",
+		})
+	}
+
+	// Validate request body
+	if err := config.Validator.Struct(reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": err.Error(),
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Check if team name is unique
+	var existingTeam models.Team
+	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
+	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "A team with that name already exists",
+		})
+	}
+	if err != nil {
+		fmt.Printf("Error checking if team name is unique: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Create team
+	teamID := primitive.NewObjectID()
+	team := models.Team{
+		ID:        teamID,
+		CreatedAt: time.Now().Unix(),
+		Name:      reqBody.Name,
+	}
+
+	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal server error",
+			"message": "Failed to create team",
+		})
+	}
+
+	// Add team owner role to user
+	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
+		Role:   models.RoleOwner,
+		TeamID: teamID,
+	}}}); err != nil {
+		fmt.Printf("Error adding team owner role to user: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(team)
 }
 
 // Update a team.
-func UpdateTeam(c *fiber.Ctx) {
+func UpdateTeam(c *fiber.Ctx) error {
 	// TODO
+	return nil
 }
 
 // Delete a team.
-func DeleteTeam(c *fiber.Ctx) {
+// A user's default team cannot be deleted.
+func DeleteTeam(c *fiber.Ctx) error {
 	// TODO
+	return nil
 }
