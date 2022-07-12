@@ -16,7 +16,7 @@ import (
 //
 // @param bid - branch ID
 //
-func GetBranchWithCommit(pid primitive.ObjectID, bid primitive.ObjectID) (*models.BranchWithCommit, error) {
+func GetOneWithCommit(pid primitive.ObjectID, bid primitive.ObjectID) (*models.BranchWithCommit, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

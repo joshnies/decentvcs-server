@@ -422,7 +422,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(pid, bid)
 	if err != nil {
 		fmt.Printf("Error getting branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

@@ -70,7 +70,7 @@ func Lock(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(pid, bid)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -207,7 +207,7 @@ func Unlock(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(pid, bid)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
