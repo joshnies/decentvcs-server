@@ -117,6 +117,7 @@ func GetOneProjectByBlob(c *fiber.Ctx) error {
 }
 
 // Create a new project.
+// Only team admins can create new projects for the team.
 //
 // Body: `CreateProjectRequest`
 //
@@ -172,7 +173,7 @@ func CreateProject(c *fiber.Ctx) error {
 	var teamFilter bson.M
 	if teamName == "" {
 		// Team name not provided, fetch by default team ID
-		teamFilter = bson.M{"_id": userData.DefaultTeamID, "owner_user_id": userID}
+		teamFilter = bson.M{"_id": userData.DefaultTeamID}
 	} else {
 		// Team name provided, fetch by team name
 		teamFilter = bson.M{"name": teamName, "owner_user_id": userID}
@@ -182,13 +183,28 @@ func CreateProject(c *fiber.Ctx) error {
 	if err := config.MI.DB.Collection("teams").FindOne(ctx, teamFilter).Decode(&team); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Team not found",
+				"error":   "Not found",
+				"message": "Team not found",
 			})
 		}
 
 		fmt.Printf("Error getting default team for user with ID \"%s\": %v\n", userID, err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
+		})
+	}
+
+	// Make sure user has access to team
+	hasAccess, err := acl.HasTeamAccess(userID, team.ID.Hex(), models.RoleAdmin)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if !hasAccess {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden",
 		})
 	}
 

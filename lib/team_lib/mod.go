@@ -41,9 +41,11 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 
 	// Create team
 	team := models.Team{
-		ID:        primitive.NewObjectID(),
-		CreatedAt: time.Now().Unix(),
-		Name:      teamName,
+		ID:          primitive.NewObjectID(),
+		CreatedAt:   time.Now().Unix(),
+		Name:        teamName,
+		Plan:        models.PlanTrial,
+		PeriodStart: time.Now().Unix(),
 	}
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
 		fmt.Printf("Error fetching default team while authenticating user with ID \"%s\": %v\n", userID, err)
@@ -51,7 +53,7 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 	}
 
 	// Add team owner role to user
-	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
+	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"user_id": userID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
 		Role:   models.RoleOwner,
 		TeamID: team.ID,
 	}}}); err != nil {
