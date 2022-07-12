@@ -43,6 +43,7 @@ func main() {
 	routes.RouteCommits(app.Group("/projects/:pid/commits"))
 	routes.RouteBranches(app.Group("/projects/:pid/branches"))
 	routes.RouteStorage(app.Group("/projects/:pid/storage"))
+	routes.RouteTeams(app.Group("/teams"))
 	routes.RouteStytch(app.Group("/stytch"))
 
 	// Start server

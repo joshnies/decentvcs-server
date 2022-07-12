@@ -154,6 +154,7 @@ func CreateTeam(c *fiber.Ctx) error {
 }
 
 // Update a team.
+// Only team admins can update a team.
 func UpdateTeam(c *fiber.Ctx) error {
 	// Get team ID
 	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
@@ -231,6 +232,7 @@ func UpdateTeam(c *fiber.Ctx) error {
 }
 
 // Delete a team.
+// Only team owners can delete a team.
 // A user's default team cannot be deleted.
 func DeleteTeam(c *fiber.Ctx) error {
 	// Get user ID
