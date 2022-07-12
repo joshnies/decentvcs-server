@@ -19,8 +19,6 @@ var MI MongoInstance
 
 // Initialize database client
 func InitDatabase() {
-	// TODO: Validate environment variables
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
