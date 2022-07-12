@@ -14,7 +14,7 @@ import (
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/lib/teams"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/sendgrid/sendgrid-go"
 	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
@@ -515,7 +515,7 @@ func InviteManyUsers(c *fiber.Ctx) error {
 			}
 
 			// Create default team in database
-			team, err := teams.CreateDefault(inviteRes.UserID, email)
+			team, err := team_lib.CreateDefault(inviteRes.UserID, email)
 			if err != nil {
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",

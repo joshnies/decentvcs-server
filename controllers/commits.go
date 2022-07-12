@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/lib/branch_utils"
+	"github.com/joshnies/decent-vcs/lib/branch_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -422,7 +422,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_utils.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
 	if err != nil {
 		fmt.Printf("Error getting branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

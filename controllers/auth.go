@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/lib/teams"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 	"go.mongodb.org/mongo-driver/bson"
@@ -77,7 +77,7 @@ func Authenticate(c *fiber.Ctx) error {
 	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"owner_user_id": userID}).Decode(&team); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			// Create default team
-			team, err = teams.CreateDefault(userID, email)
+			team, err = team_lib.CreateDefault(userID, email)
 			if err != nil {
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",

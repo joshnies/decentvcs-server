@@ -11,7 +11,7 @@ import (
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/lib/branch_utils"
+	"github.com/joshnies/decent-vcs/lib/branch_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
@@ -70,7 +70,7 @@ func Lock(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_utils.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -207,7 +207,7 @@ func Unlock(c *fiber.Ctx) error {
 	}
 
 	// Get branch with commit
-	branch, err := branch_utils.GetBranchWithCommit(pid, bid)
+	branch, err := branch_lib.GetBranchWithCommit(pid, bid)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

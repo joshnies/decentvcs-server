@@ -1,4 +1,4 @@
-package teams
+package team_lib
 
 import (
 	"context"
