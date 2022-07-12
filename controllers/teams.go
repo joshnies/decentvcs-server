@@ -89,7 +89,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var reqBody models.CreateOrUpdateTeamRequest
+	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -166,7 +166,7 @@ func UpdateTeam(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var reqBody models.CreateOrUpdateTeamRequest
+	var reqBody models.UpdateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -185,20 +185,22 @@ func UpdateTeam(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Check if team name is unique
-	var existingTeam models.Team
-	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
-	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "A team with that name already exists",
-		})
-	}
-	if err != nil {
-		fmt.Printf("Error checking if team name is unique: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+	if reqBody.Name != "" {
+		// Check if team name is unique
+		var existingTeam models.Team
+		err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
+		if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": "A team with that name already exists",
+			})
+		}
+		if err != nil {
+			fmt.Printf("Error checking if team name is unique: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
 	}
 
 	// Get team
@@ -217,10 +219,32 @@ func UpdateTeam(c *fiber.Ctx) error {
 		})
 	}
 
+	updateData := bson.M{}
+
+	if reqBody.Name != "" {
+		updateData["name"] = reqBody.Name
+	}
+	if reqBody.StorageUsedMB != 0 {
+		if reqBody.StorageUsedMB == -1 {
+			// Reset to 0.
+			// Can't provide 0 directly, since this would be overridden each time it's not provided in an update.
+			updateData["storage_used_mb"] = 0
+		} else {
+			updateData["storage_used_mb"] = reqBody.StorageUsedMB
+		}
+	}
+	if reqBody.BandwidthUsedMB != 0 {
+		if reqBody.BandwidthUsedMB == -1 {
+			// Reset to 0.
+			// Can't provide 0 directly, since this would be overridden each time it's not provided in an update.
+			updateData["bandwidth_used_mb"] = 0
+		} else {
+			updateData["bandwidth_used_mb"] = reqBody.BandwidthUsedMB
+		}
+	}
+
 	// Update team
-	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": teamID}, bson.M{"$set": bson.M{
-		"name": reqBody.Name,
-	}}); err != nil {
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": teamID}, bson.M{"$set": updateData}); err != nil {
 		fmt.Printf("Error updating team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -253,7 +277,7 @@ func DeleteTeam(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var reqBody models.CreateOrUpdateTeamRequest
+	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",

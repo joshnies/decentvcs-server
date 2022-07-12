@@ -10,7 +10,14 @@ const (
 	PlanEnterprise Plan = "enterprise"
 )
 
-type TeamBilling struct {
+// [Database model]
+//
+// Team that owns projects.
+type Team struct {
+	ID        primitive.ObjectID `json:"_id" bson:"_id"`
+	CreatedAt int64              `json:"created_at" bson:"created_at"`
+	// Team name. Must be unique (validated server-side).
+	Name string `json:"name" bson:"name"`
 	// Plan that this team subscribes to.
 	Plan Plan `json:"plan" bson:"plan"`
 	// Unix timestamp of when the billing period started.
@@ -22,19 +29,32 @@ type TeamBilling struct {
 	BandwidthUsedMB int64 `json:"bandwidth_used_mb" bson:"bandwidth_used_mb"`
 }
 
-// [Database model]
-//
-// Team that owns projects.
-type Team struct {
-	ID        primitive.ObjectID `json:"_id" bson:"_id"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
-	// Team name. Must be unique (validated server-side).
-	Name    string      `json:"name" bson:"name"`
-	Billing TeamBilling `json:"billing" bson:"billing"`
-}
-
-// Request body for `CreateOneTeam` or `UpdateOneTeam`.
-type CreateOrUpdateTeamRequest struct {
+// Request body for `CreateOneTeam`.
+type CreateTeamRequest struct {
 	// Team name. Must be unique (validated server-side).
 	Name string `json:"name" validate:"required,min=3,max=64"`
+	// Plan that this team subscribes to.
+	Plan Plan `json:"plan"`
+	// Unix timestamp of when the billing period started.
+	PeriodStart int64 `json:"period_start"`
+}
+
+// Request body for `UpdateOneTeam`.
+type UpdateTeamRequest struct {
+	// Team name. Must be unique (validated server-side).
+	// Required since it's currently the only updateable field.
+	Name string `json:"name" validate:"min=3,max=64"`
+	// Amount of storage used in MB. Accounts for all projects within this team.
+	// Provide -1 to reset to 0.
+	StorageUsedMB int64 `json:"storage_used_mb" validate:"gte=0"`
+	// Amount of bandwidth used in MB.  Accounts for all projects within this team.
+	// Resets on the first day of a new billing period.
+	// Provide -1 to reset to 0.
+	BandwidthUsedMB int64 `json:"bandwidth_used_mb" validate:"gte=0"`
+}
+
+// Request body for `UpdateOneTeamPlan`.
+type UpdateTeamPlanRequest struct {
+	// Plan that this team subscribes to.
+	Plan Plan `json:"plan" validate:"min=1"`
 }
