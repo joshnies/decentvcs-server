@@ -89,7 +89,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var reqBody models.CreateTeamRequest
+	var reqBody models.CreateOrUpdateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -155,8 +155,79 @@ func CreateTeam(c *fiber.Ctx) error {
 
 // Update a team.
 func UpdateTeam(c *fiber.Ctx) error {
-	// TODO
-	return nil
+	// Get team ID
+	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid team ID",
+		})
+	}
+
+	// Parse request body
+	var reqBody models.CreateOrUpdateTeamRequest
+	if err := c.BodyParser(&reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "Invalid request body",
+		})
+	}
+
+	// Validate request body
+	if err := config.Validator.Struct(reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": err.Error(),
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Check if team name is unique
+	var existingTeam models.Team
+	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
+	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": "A team with that name already exists",
+		})
+	}
+	if err != nil {
+		fmt.Printf("Error checking if team name is unique: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Get team
+	var team models.Team
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "Not found",
+				"message": "Team not found",
+			})
+		}
+
+		fmt.Printf("Error getting team: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Update team
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": teamID}, bson.M{"$set": bson.M{
+		"name": reqBody.Name,
+	}}); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal server error",
+			"message": "Failed to update team",
+		})
+	}
+
+	team.Name = reqBody.Name
+	return c.JSON(team)
 }
 
 // Delete a team.

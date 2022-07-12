@@ -12,8 +12,8 @@ type Team struct {
 	Name string `json:"name" bson:"name"`
 }
 
-// Request body for `CreateOneTeam`.
-type CreateTeamRequest struct {
+// Request body for `CreateOneTeam` or `UpdateOneTeam`.
+type CreateOrUpdateTeamRequest struct {
 	// Team name. Must be unique (validated server-side).
 	Name string `json:"name" validate:"required,min=3,max=64"`
 }
