@@ -67,7 +67,7 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 		Role:   models.RoleOwner,
 		TeamID: team.ID,
 	})
-	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userData.ID}, bson.M{"$set": bson.M{"roles": roles, "default_team_id": team.ID}}); err != nil {
+	if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"_id": userData.ID}, bson.M{"$set": bson.M{"roles": roles, "default_team_id": team.ID}}); err != nil {
 		// Delete created team
 		if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": team.ID}); err != nil {
 			fmt.Printf("Error deleting team after failing to create owner role: %v\n", err)

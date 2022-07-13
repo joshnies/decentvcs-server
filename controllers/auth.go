@@ -102,6 +102,7 @@ func Authenticate(c *fiber.Ctx) error {
 		// Create new default team
 		_, err := team_lib.CreateDefault(userID, email)
 		if err != nil {
+			fmt.Printf("Error creating default team during authentication: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
