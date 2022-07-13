@@ -22,6 +22,15 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 	// Create default team
 	emailUser := strings.Split(email, "@")[0]
 
+	// Get user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": userID}).Decode(&userData); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return models.Team{}, errors.New("user data not found")
+		}
+		return models.Team{}, err
+	}
+
 	// Check if there's a team already with that name
 	alreadyExists := true
 	var existingTeam models.Team
@@ -36,7 +45,7 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 
 	teamName := emailUser
 	if alreadyExists {
-		teamName += "-" + strings.Replace(strings.Replace(userID, "user-", "", 1), "test-", "", 1)
+		teamName += "-" + strings.Replace(strings.Replace(userData.UserID, "user-", "", 1), "test-", "", 1)
 	}
 
 	// Create team
@@ -48,15 +57,17 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 		PeriodStart: time.Now().Unix(),
 	}
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
-		fmt.Printf("Error fetching default team while authenticating user with ID \"%s\": %v\n", userID, err)
+		fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", userData.UserID, err)
 		return models.Team{}, err
 	}
 
-	// Add team owner role to user
-	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"user_id": userID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
+	// Update user data with roles and set new team as default
+	roles := userData.Roles
+	roles = append(roles, models.RoleObject{
 		Role:   models.RoleOwner,
 		TeamID: team.ID,
-	}}}); err != nil {
+	})
+	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userData.ID}, bson.M{"$set": bson.M{"roles": roles, "default_team_id": team.ID}}); err != nil {
 		// Delete created team
 		if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": team.ID}); err != nil {
 			fmt.Printf("Error deleting team after failing to create owner role: %v\n", err)
