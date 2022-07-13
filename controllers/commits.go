@@ -448,7 +448,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	// Create commit object
 	commit := models.Commit{
 		ID:            primitive.NewObjectID(),
-		CreatedAt:     time.Now().Unix(),
+		CreatedAt:     time.Now(),
 		Index:         branch.Commit.Index + 1,
 		ProjectID:     pid,
 		BranchID:      bid,

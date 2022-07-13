@@ -1,10 +1,14 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type Project struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	// Project name that must be unique in the scope of the team.
 	Name string `json:"name" bson:"name" validate:"required"`
 	// Project name prefixed by the team name. For example: `my-team/my-project`.

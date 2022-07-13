@@ -128,7 +128,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	teamID := primitive.NewObjectID()
 	team := models.Team{
 		ID:        teamID,
-		CreatedAt: time.Now().Unix(),
+		CreatedAt: time.Now(),
 		Name:      reqBody.Name,
 	}
 

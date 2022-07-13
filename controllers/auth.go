@@ -79,7 +79,7 @@ func Authenticate(c *fiber.Ctx) error {
 			// Create user data
 			userData = models.UserData{
 				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now().Unix(),
+				CreatedAt: time.Now(),
 				UserID:    userID,
 				Roles:     []models.RoleObject{},
 			}

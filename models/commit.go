@@ -1,10 +1,14 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type Commit struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	CreatedAt int64              `json:"created_at,omitempty" bson:"created_at,omitempty"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	Index     int                `json:"index,omitempty" bson:"index,omitempty"`
 	ProjectID primitive.ObjectID `json:"project_id,omitempty" bson:"project_id,omitempty"`
 	BranchID  primitive.ObjectID `json:"branch_id,omitempty" bson:"branch_id,omitempty"`
@@ -41,7 +45,7 @@ type CreateCommitRequest struct {
 
 type CommitWithBranch struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	CreatedAt int64              `json:"created_at,omitempty" bson:"created_at,omitempty"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	Index     int                `json:"index,omitempty" bson:"index,omitempty"`
 	ProjectID primitive.ObjectID `json:"project_id,omitempty" bson:"project_id,omitempty"`
 	Branch    Branch             `json:"branch,omitempty" bson:"branch,omitempty"`

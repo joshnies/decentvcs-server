@@ -51,10 +51,10 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 	// Create team
 	team := models.Team{
 		ID:          primitive.NewObjectID(),
-		CreatedAt:   time.Now().Unix(),
+		CreatedAt:   time.Now(),
 		Name:        teamName,
 		Plan:        models.PlanTrial,
-		PeriodStart: time.Now().Unix(),
+		PeriodStart: time.Now(),
 	}
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
 		fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", userData.UserID, err)

@@ -214,7 +214,7 @@ func CreateProject(c *fiber.Ctx) error {
 	// Create new project
 	project := models.Project{
 		ID:              primitive.NewObjectID(),
-		CreatedAt:       time.Now().Unix(),
+		CreatedAt:       time.Now(),
 		Name:            projectName,
 		Blob:            fmt.Sprintf("%s/%s", team.Name, projectName),
 		TeamID:          team.ID,
@@ -232,7 +232,7 @@ func CreateProject(c *fiber.Ctx) error {
 	// Create initial commit
 	commit := models.Commit{
 		ID:        primitive.NewObjectID(),
-		CreatedAt: time.Now().Unix(),
+		CreatedAt: time.Now(),
 		Index:     1, // Starts at 1 since in Go, 0 is the default and used to check for empty values
 		ProjectID: project.ID,
 		BranchID:  branchId,
@@ -253,7 +253,7 @@ func CreateProject(c *fiber.Ctx) error {
 	// Create default branch
 	branch := models.BranchCreateBSON{
 		ID:        branchId,
-		CreatedAt: time.Now().Unix(),
+		CreatedAt: time.Now(),
 		Name:      "stable",
 		ProjectID: project.ID,
 		CommitID:  commit.ID,

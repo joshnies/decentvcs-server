@@ -329,7 +329,7 @@ func CreateBranch(c *fiber.Ctx) error {
 		})
 	}
 	if err == nil {
-		if branch.DeletedAt == 0 {
+		if branch.DeletedAt.IsZero() {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 				"error": "Branch already exists",
 			})
@@ -347,7 +347,7 @@ func CreateBranch(c *fiber.Ctx) error {
 		// Create new branch
 		branch := models.BranchCreateBSON{
 			ID:        primitive.NewObjectID(),
-			CreatedAt: time.Now().Unix(),
+			CreatedAt: time.Now(),
 			Name:      body.Name,
 			ProjectID: projectId,
 			CommitID:  commit.ID,
@@ -503,7 +503,7 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 	}
 
 	// Soft-delete branch
-	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, filter, bson.M{"$set": bson.M{"deleted_at": time.Now().Unix()}})
+	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, filter, bson.M{"$set": bson.M{"deleted_at": time.Now()}})
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
