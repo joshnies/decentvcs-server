@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/constants"
 	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
@@ -119,7 +120,7 @@ func Authenticate(c *fiber.Ctx) error {
 
 // Revoke the session.
 func RevokeSession(c *fiber.Ctx) error {
-	sessionToken := c.Get("X-Session-Token") // already validated in the `ValidateAuth` middleware
+	sessionToken := c.Get(constants.SessionTokenHeader) // already validated in the `ValidateAuth` middleware
 
 	_, err := config.StytchClient.Sessions.Revoke(&stytch.SessionsRevokeParams{
 		SessionToken: sessionToken,

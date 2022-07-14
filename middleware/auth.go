@@ -5,13 +5,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/constants"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
 
 // Middleware that validates the Stytch session.
 func IsAuthenticated(c *fiber.Ctx) error {
-	sessionToken := c.Get("X-Session-Token")
+	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
 		c.Status(401).JSON(map[string]string{
 			"error": "Unauthorized",
