@@ -7,7 +7,7 @@ import (
 )
 
 func RouteStorage(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated, middleware.HasProjectAccess)
+	router.Use(middleware.IsAuthenticated, middleware.HasTeamAccess)
 
 	router.Post("/presign/many", controllers.PresignManyGET)
 	router.Post("/presign/:method", controllers.PresignOne)

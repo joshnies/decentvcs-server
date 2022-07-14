@@ -7,7 +7,7 @@ import (
 )
 
 func RouteCommits(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated, middleware.HasProjectAccess)
+	router.Use(middleware.IsAuthenticated, middleware.HasTeamAccess)
 
 	router.Get("/", controllers.GetManyCommits)
 	router.Post("/", controllers.CreateOneCommit)
