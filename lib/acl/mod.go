@@ -83,24 +83,18 @@ func GetRoleLevel(role models.Role) (uint, error) {
 }
 
 // Add a new role to a user's data in the VCS database.
-func AddRole(userID string, projectID primitive.ObjectID, role models.Role) (models.UserData, error) {
+func AddRole(userData models.UserData, teamID primitive.ObjectID, role models.Role) (models.UserData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		return models.UserData{}, err
-	}
-
 	// Add role
 	userData.Roles = append(userData.Roles, models.RoleObject{
-		ProjectID: projectID,
-		Role:      role,
+		Role:   role,
+		TeamID: teamID,
 	})
 
 	// Update user data
-	if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, &bson.M{"user_id": userID}, &bson.M{"$set": &userData}); err != nil {
+	if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, &bson.M{"user_id": userData.UserID}, &bson.M{"$set": &userData}); err != nil {
 		return models.UserData{}, err
 	}
 
