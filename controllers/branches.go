@@ -18,7 +18,7 @@ import (
 // Get many branches.
 func GetManyBranches(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
@@ -95,7 +95,7 @@ func GetManyBranches(c *fiber.Ctx) error {
 // - join_commit: Whether to join commit to branch.
 func GetOneBranch(c *fiber.Ctx) error {
 	// Get URL params
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -104,7 +104,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 		})
 	}
 
-	bid := c.Params("bid")
+	bid := c.Params("branch_name")
 	var filterName string
 	objId, err := primitive.ObjectIDFromHex(bid)
 	if err != nil {
@@ -179,7 +179,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 // - join_commit: Whether to join commit to branch.
 func GetDefaultBranch(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -274,7 +274,7 @@ func GetDefaultBranch(c *fiber.Ctx) error {
 //
 func CreateBranch(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -382,7 +382,7 @@ func CreateBranch(c *fiber.Ctx) error {
 //
 func UpdateOneBranch(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -395,7 +395,7 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 	filter := bson.M{"project_id": projectId}
 
 	// Get branch ID
-	bid := c.Params("bid")
+	bid := c.Params("branch_name")
 	if primitive.IsValidObjectID(bid) {
 		// Update by ID
 		objId, err := primitive.ObjectIDFromHex(bid)
@@ -442,7 +442,7 @@ func UpdateOneBranch(c *fiber.Ctx) error {
 // Soft-delete one branch.
 func DeleteOneBranch(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -485,7 +485,7 @@ func DeleteOneBranch(c *fiber.Ctx) error {
 	}
 
 	// Build mongo pipeline
-	bid := c.Params("bid")
+	bid := c.Params("branch_name")
 	var filterName string
 	objId, err := primitive.ObjectIDFromHex(bid)
 	if err != nil {

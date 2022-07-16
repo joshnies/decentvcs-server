@@ -32,7 +32,7 @@ import (
 //
 func GetOneProject(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -304,7 +304,7 @@ func CreateProject(c *fiber.Ctx) error {
 // Returns the updated project.
 func UpdateOneProject(c *fiber.Ctx) error {
 	// Parse project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -384,7 +384,7 @@ func UpdateOneProject(c *fiber.Ctx) error {
 // Delete project and all of its subresources.
 func DeleteOneProject(c *fiber.Ctx) error {
 	// Get project
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -443,7 +443,7 @@ func DeleteOneProject(c *fiber.Ctx) error {
 // Invite many users to a project.
 func InviteManyUsers(c *fiber.Ctx) error {
 	// Validate project
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

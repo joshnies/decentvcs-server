@@ -18,7 +18,7 @@ import (
 //
 func HasTeamAccess(c *fiber.Ctx) error {
 	// Get team ID
-	tid := c.Params("tid")
+	tid := c.Params("team_id")
 	_, err := primitive.ObjectIDFromHex(tid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -59,7 +59,7 @@ func HasTeamAccessWithRole(minRole models.Role) func(*fiber.Ctx) error {
 	// Return middleware function
 	return func(c *fiber.Ctx) error {
 		// Get team ID
-		tid := c.Params("tid")
+		tid := c.Params("team_id")
 		_, err := primitive.ObjectIDFromHex(tid)
 		if err != nil {
 			fmt.Println(err)

@@ -33,7 +33,7 @@ import (
 //
 func GetManyCommits(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
@@ -179,7 +179,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 //
 func GetManyCommitsForBranch(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
@@ -190,7 +190,7 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 	}
 
 	// Get branch ID
-	branchId, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	branchId, err := primitive.ObjectIDFromHex(c.Params("branch_name"))
 	if err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -294,7 +294,7 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 // Get one commit by index.
 func GetOneCommitByIndex(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
@@ -338,7 +338,7 @@ func GetOneCommitByIndex(c *fiber.Ctx) error {
 // Get one commit by ID.
 func GetOneCommitByID(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	_, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		fmt.Println(err)
@@ -383,7 +383,7 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	}
 
 	// Get project ID
-	pidStr := c.Params("pid")
+	pidStr := c.Params("project_name")
 	pid, err := primitive.ObjectIDFromHex(pidStr)
 	if err != nil {
 		fmt.Println(err)
@@ -537,7 +537,7 @@ func UpdateOneCommit(c *fiber.Ctx) error {
 //
 func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
 	// Get branch ID
-	bid, err := primitive.ObjectIDFromHex(c.Params("bid"))
+	bid, err := primitive.ObjectIDFromHex(c.Params("branch_name"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",

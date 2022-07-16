@@ -40,7 +40,7 @@ const (
 //
 func PresignManyGET(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -121,7 +121,7 @@ func PresignOne(c *fiber.Ctx) error {
 	}
 
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -262,7 +262,7 @@ func PresignOne(c *fiber.Ctx) error {
 // Multipart uploads can be started by generating presigned URLs.
 func CompleteMultipartUpload(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -333,7 +333,7 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 // Multipart uploads can be started by generating presigned URLs.
 func AbortMultipartUpload(c *fiber.Ctx) error {
 	// Get project ID
-	pid := c.Params("pid")
+	pid := c.Params("project_name")
 	projectObjectId, err := primitive.ObjectIDFromHex(pid)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -389,7 +389,7 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 // Delete all unused objects from storage based on commit hash maps.
 func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 	// Get project ID
-	pidStr := c.Params("pid")
+	pidStr := c.Params("project_name")
 	pid, err := primitive.ObjectIDFromHex(pidStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

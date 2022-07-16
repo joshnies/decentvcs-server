@@ -29,7 +29,7 @@ import (
 //
 func Lock(c *fiber.Ctx) error {
 	// Get project ID
-	pidStr := c.Params("pid")
+	pidStr := c.Params("project_name")
 	pid, err := primitive.ObjectIDFromHex(pidStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -39,7 +39,7 @@ func Lock(c *fiber.Ctx) error {
 	}
 
 	// Get branch ID
-	bidStr := c.Params("bid")
+	bidStr := c.Params("branch_name")
 	bid, err := primitive.ObjectIDFromHex(bidStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -166,7 +166,7 @@ func Lock(c *fiber.Ctx) error {
 // Remove the lock on one or many files, allowing other users on the project to edit them again.
 func Unlock(c *fiber.Ctx) error {
 	// Get project ID
-	pidStr := c.Params("pid")
+	pidStr := c.Params("project_name")
 	pid, err := primitive.ObjectIDFromHex(pidStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -176,7 +176,7 @@ func Unlock(c *fiber.Ctx) error {
 	}
 
 	// Get branch ID
-	bidStr := c.Params("bid")
+	bidStr := c.Params("branch_name")
 	bid, err := primitive.ObjectIDFromHex(bidStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
