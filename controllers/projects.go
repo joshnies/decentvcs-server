@@ -57,7 +57,6 @@ func CreateProject(c *fiber.Ctx) error {
 		ID:              primitive.NewObjectID(),
 		CreatedAt:       time.Now(),
 		Name:            projectName,
-		Blob:            fmt.Sprintf("%s/%s", team.Name, projectName),
 		TeamID:          team.ID,
 		DefaultBranchID: branchId,
 	}
@@ -114,7 +113,6 @@ func CreateProject(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"_id":     project.ID.Hex(),
 		"name":    project.Name,
-		"blob":    project.Blob,
 		"team_id": project.TeamID.Hex(),
 		"branches": []fiber.Map{
 			{
