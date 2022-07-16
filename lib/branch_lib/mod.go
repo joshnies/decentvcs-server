@@ -11,20 +11,23 @@ import (
 )
 
 // Get branch with its latest commit using a MongoDB aggregation pipeline.
-//
-// @param pid - project ID
-//
-// @param bid - branch ID
-//
-func GetOneWithCommit(pid primitive.ObjectID, bid primitive.ObjectID) (*models.BranchWithCommit, error) {
+func GetOneWithCommit(teamID primitive.ObjectID, projectName string, branchName string) (*models.BranchWithCommit, error) {
+	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": teamID, "name": projectName}).Decode(&project); err != nil {
+		return nil, err
+	}
+
+	// Get branch from database
 	cur, err := config.MI.DB.Collection("branches").Aggregate(ctx, []bson.M{
 		{
 			"$match": bson.M{
-				"project_id": pid,
 				"deleted_at": bson.M{"$exists": false},
+				"project_id": project.ID,
+				"name":       branchName,
 			},
 		},
 		{
