@@ -12,41 +12,19 @@ import (
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/lib/branch_lib"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Lock one or many files from edits by other users.
-//
-// URL params:
-//
-// - pid: project ID
-//
-// - bid: branch ID
-//
 func Lock(c *fiber.Ctx) error {
-	// Get project ID
-	pidStr := c.Params("project_name")
-	pid, err := primitive.ObjectIDFromHex(pidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
-	// Get branch ID
-	bidStr := c.Params("branch_name")
-	bid, err := primitive.ObjectIDFromHex(bidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch ID",
-		})
-	}
+	userData := auth.GetUserDataFromContext(c)
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+	branchName := c.Params("branch_name")
 
 	// Parse request body
 	var reqBody models.LockOrUnlockRequest
@@ -57,37 +35,28 @@ func Lock(c *fiber.Ctx) error {
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	if len(reqBody.Paths) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "No paths provided",
+			"error": "No paths provided",
 		})
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetOneWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(team.ID, projectName, branchName)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Branch not found",
+				"error": "Branch not found",
 			})
 		}
 
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
-	}
-
-	// Get user ID
-	userID, err := auth.GetUserID(c)
-	if err != nil {
-		return err
 	}
 
 	var filePaths []string
@@ -127,7 +96,7 @@ func Lock(c *fiber.Ctx) error {
 			lockedBy := "(unknown)"
 
 			// Get name of user who locked the file
-			if val != userID {
+			if val != userData.UserID {
 				stytchUser, err := auth.GetStytchUserByID(val)
 				if err != nil {
 					fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
@@ -140,21 +109,20 @@ func Lock(c *fiber.Ctx) error {
 
 			// Return error
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": fmt.Sprintf("Path \"%s\" is already locked by %s", path, lockedBy),
+				"error": fmt.Sprintf("Path \"%s\" is already locked by %s", path, lockedBy),
 			})
 		}
 
 		// File is available to lock
-		locks[path] = userID
+		locks[path] = userData.UserID
 	}
 
 	// Add locked paths to branch
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": locks}}); err != nil {
-		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, branch.ID, bson.M{"$set": bson.M{"locks": locks}}); err != nil {
+		fmt.Printf("[Lock] Error updating branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -165,25 +133,10 @@ func Lock(c *fiber.Ctx) error {
 
 // Remove the lock on one or many files, allowing other users on the project to edit them again.
 func Unlock(c *fiber.Ctx) error {
-	// Get project ID
-	pidStr := c.Params("project_name")
-	pid, err := primitive.ObjectIDFromHex(pidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
-	// Get branch ID
-	bidStr := c.Params("branch_name")
-	bid, err := primitive.ObjectIDFromHex(bidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch ID",
-		})
-	}
+	userData := auth.GetUserDataFromContext(c)
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+	branchName := c.Params("branch_name")
 
 	// Parse request body
 	var reqBody models.LockOrUnlockRequest
@@ -194,25 +147,22 @@ func Unlock(c *fiber.Ctx) error {
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	if len(reqBody.Paths) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "No paths provided",
+			"error": "No paths provided",
 		})
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetOneWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(team.ID, projectName, branchName)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Branch not found",
+				"error": "Branch not found",
 			})
 		}
 
@@ -223,15 +173,8 @@ func Unlock(c *fiber.Ctx) error {
 
 	if branch.Locks == nil || len(branch.Locks) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Branch has no locks",
+			"error": "Branch has no locks",
 		})
-	}
-
-	// Get user ID
-	userID, err := auth.GetUserID(c)
-	if err != nil {
-		return err
 	}
 
 	var filePaths []string
@@ -253,8 +196,7 @@ func Unlock(c *fiber.Ctx) error {
 
 			if !found {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error":   "Bad request",
-					"message": fmt.Sprintf("File \"%s\" is not a file or directory in remote branch \"%s\"", path, branch.Name),
+					"error": fmt.Sprintf("File \"%s\" is not a file or directory in remote branch \"%s\"", path, branch.Name),
 				})
 			}
 		}
@@ -267,25 +209,24 @@ func Unlock(c *fiber.Ctx) error {
 	for _, path := range filePaths {
 		// Make sure user is the current locker
 		if val, ok := branch.Locks[path]; ok {
-			if val != userID {
+			if val != userData.UserID {
 				// User is not the file locker.
 				//
 				// Return error if:
 				// - "force" was not provided
 				// - "force" was provided but user is not an admin or higher for the project
 				if force {
-					canForceUnlock, err := acl.HasProjectAccess(userID, branch.ProjectID.Hex(), models.RoleAdmin)
-					if err != nil || !canForceUnlock {
+					teamAccess, err := acl.HasTeamAccess(userData.UserID, team.Name, models.RoleAdmin)
+					if err != nil || !teamAccess.HasAccess {
 						return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-							"error":   "Forbidden",
-							"message": "You do not have permission to force unlock files",
+							"error": "You do not have permission to force unlock files",
 						})
 					}
 				} else {
 					lockedBy := "(unknown)"
 
 					// Get name of user who locked the file
-					if val != userID {
+					if val != userData.UserID {
 						stytchUser, err := auth.GetStytchUserByID(val)
 						if err != nil {
 							fmt.Printf("Error while getting Stytch user who locked a file: %v\n", err)
@@ -311,8 +252,7 @@ func Unlock(c *fiber.Ctx) error {
 			delete(branch.Locks, path)
 		} else {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": fmt.Sprintf("Path \"%s\" is already unlocked", path),
+				"error": fmt.Sprintf("Path \"%s\" is already unlocked", path),
 			})
 		}
 	}
@@ -321,8 +261,8 @@ func Unlock(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, bid, bson.M{"$set": bson.M{"locks": branch.Locks}}); err != nil {
-		fmt.Printf("Error while updating branch with ID \"%s\": %v\n", bid.Hex(), err)
+	if _, err := config.MI.DB.Collection("branches").UpdateByID(ctx, branch.ID, bson.M{"$set": bson.M{"locks": branch.Locks}}); err != nil {
+		fmt.Printf("[Unlock] Error updating branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})

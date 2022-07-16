@@ -12,7 +12,6 @@ func RouteCommits(router fiber.Router) {
 
 	router.Get("/", controllers.GetManyCommits)
 	router.Post("/", controllers.CreateCommit)
-	router.Get("/index/:commit_index", controllers.GetOneCommit)
-	router.Get("/:commit_id", controllers.GetOneCommitByID)
-	router.Post("/:commit_id", controllers.UpdateCommit)
+	router.Get("/:commit_index", controllers.GetOneCommit)
+	router.Post("/:commit_index", controllers.UpdateCommit)
 }

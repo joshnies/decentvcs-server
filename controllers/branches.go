@@ -120,7 +120,7 @@ func GetOneBranch(c *fiber.Ctx) error {
 
 	// Build mongo aggregation pipeline
 	pipeline := []bson.M{
-		bson.M{
+		{
 			"$match": bson.M{
 				"deleted_at": bson.M{"$exists": false},
 				"project_id": project.ID,
