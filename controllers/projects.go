@@ -49,6 +49,17 @@ func CreateProject(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")
 
+	// Check if project name is unique for team
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var existingProject models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&existingProject); err != mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "A project with that name already exists for the team",
+		})
+	}
+
 	// Generate default branch ID ahead of time
 	branchId := primitive.NewObjectID()
 
@@ -62,9 +73,6 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	// Create project in database
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	if _, err := config.MI.DB.Collection("projects").InsertOne(ctx, project); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
