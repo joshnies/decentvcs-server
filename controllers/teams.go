@@ -19,27 +19,8 @@ import (
 
 // Get one team.
 func GetOneTeam(c *fiber.Ctx) error {
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get team
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not found",
-			"message": "Team not found",
-		})
-	}
-
+	// Return team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
 	return c.JSON(team)
 }
 
@@ -68,8 +49,7 @@ func GetManyTeams(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not found",
-			"message": "Team not found",
+			"error": "Team not found",
 		})
 	}
 
@@ -92,16 +72,14 @@ func CreateTeam(c *fiber.Ctx) error {
 	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -113,8 +91,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
 	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "A team with that name already exists",
+			"error": "A team with that name already exists",
 		})
 	}
 	if err != nil {
@@ -134,8 +111,7 @@ func CreateTeam(c *fiber.Ctx) error {
 
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal server error",
-			"message": "Failed to create team",
+			"error": "Failed to create team",
 		})
 	}
 
@@ -156,29 +132,21 @@ func CreateTeam(c *fiber.Ctx) error {
 // Update a team.
 // Only team admins can update a team.
 func UpdateTeam(c *fiber.Ctx) error {
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
+	// Get team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
 
 	// Parse request body
 	var reqBody models.UpdateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -188,11 +156,10 @@ func UpdateTeam(c *fiber.Ctx) error {
 	if reqBody.Name != "" {
 		// Check if team name is unique
 		var existingTeam models.Team
-		err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
+		err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
 		if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": "A team with that name already exists",
+				"error": "A team with that name already exists",
 			})
 		}
 		if err != nil {
@@ -201,22 +168,6 @@ func UpdateTeam(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
-	}
-
-	// Get team
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Team not found",
-			})
-		}
-
-		fmt.Printf("Error getting team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
 	}
 
 	updateData := bson.M{}
@@ -244,7 +195,7 @@ func UpdateTeam(c *fiber.Ctx) error {
 	}
 
 	// Update team
-	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": teamID}, bson.M{"$set": updateData}); err != nil {
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": updateData}); err != nil {
 		fmt.Printf("Error updating team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -259,6 +210,9 @@ func UpdateTeam(c *fiber.Ctx) error {
 // Only team owners can delete a team.
 // A user's default team cannot be deleted.
 func DeleteTeam(c *fiber.Ctx) error {
+	// Get team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
+
 	// Get user ID
 	userID, err := auth.GetUserID(c)
 	if err != nil {
@@ -267,50 +221,23 @@ func DeleteTeam(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
-
 	// Parse request body
 	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// Get team to make sure it exists
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Team not found",
-			})
-		}
-
-		fmt.Printf("Error getting team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
 
 	// Get user data
 	var userData models.UserData
@@ -329,13 +256,12 @@ func DeleteTeam(c *fiber.Ctx) error {
 	// Ensure deleting team is not the default for the user
 	if team.ID.Hex() == userData.DefaultTeamID.Hex() {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Cannot delete default team",
+			"error": "Cannot delete default team",
 		})
 	}
 
 	// Delete team
-	if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": teamID}); err != nil {
+	if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": team.ID}); err != nil {
 		fmt.Printf("Error deleting team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

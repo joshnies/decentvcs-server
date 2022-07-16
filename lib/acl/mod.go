@@ -13,7 +13,7 @@ import (
 )
 
 // Returns true if user has access to the given team (with any role).
-func HasTeamAccess(userID string, teamName string, minRole models.Role) (bool, error) {
+func HasTeamAccess(userID string, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -21,20 +21,20 @@ func HasTeamAccess(userID string, teamName string, minRole models.Role) (bool, e
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return false, errors.New("user not found")
+			return models.HasTeamAccessResponse{HasAccess: false}, errors.New("user not found")
 		}
 
-		return false, err
+		return models.HasTeamAccessResponse{HasAccess: false}, err
 	}
 
 	// Get team
 	var team models.Team
 	if err := config.MI.DB.Collection("team").FindOne(ctx, &bson.M{"name": teamName}).Decode(&userData); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return false, errors.New("team not found")
+			return models.HasTeamAccessResponse{HasAccess: false}, errors.New("team not found")
 		}
 
-		return false, err
+		return models.HasTeamAccessResponse{HasAccess: false}, err
 	}
 
 	// Loop through roles
@@ -44,62 +44,27 @@ func HasTeamAccess(userID string, teamName string, minRole models.Role) (bool, e
 				// Make sure user has access as minimum role or higher
 				userRoleLvl, err := GetRoleLevel(r.Role)
 				if err != nil {
-					return false, err
+					return models.HasTeamAccessResponse{HasAccess: false}, err
 				}
 
 				minRoleLvl, err := GetRoleLevel(minRole)
 				if err != nil {
-					return false, err
+					return models.HasTeamAccessResponse{HasAccess: false}, err
 				}
 
-				return userRoleLvl >= minRoleLvl, nil
+				if userRoleLvl >= minRoleLvl {
+					// User has access with minimum role or higher
+					return models.HasTeamAccessResponse{Team: &team, Role: r.Role, HasAccess: true}, nil
+				}
 			}
 
 			// User has access to team
-			return true, nil
+			return models.HasTeamAccessResponse{Team: &team, Role: models.RoleNone, HasAccess: true}, nil
 		}
 	}
 
 	// No role found for team, so user has no access
-	return false, nil
-}
-
-// Returns user's role, if any, for the given team.
-// If no role is found, returns `models.RoleNone`.
-func GetTeamRole(userID string, teamName string) (models.Role, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.RoleNone, errors.New("user not found")
-		}
-
-		return models.RoleNone, err
-	}
-
-	// Get team
-	var team models.Team
-	if err := config.MI.DB.Collection("team").FindOne(ctx, &bson.M{"name": teamName}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.RoleNone, errors.New("team not found")
-		}
-
-		return models.RoleNone, err
-	}
-
-	// Loop through roles
-	for _, robj := range userData.Roles {
-		if robj.TeamID.Hex() == team.ID.Hex() {
-			// User has a role for team
-			return robj.Role, nil
-		}
-	}
-
-	// No role found for team
-	return models.RoleNone, nil
+	return models.HasTeamAccessResponse{HasAccess: false}, nil
 }
 
 // Get the numerical level of a role.
