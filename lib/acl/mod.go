@@ -13,7 +13,7 @@ import (
 )
 
 // Returns true if user has access to the given team (with any role).
-func HasTeamAccess(userID string, teamID string, minRole models.Role) (bool, error) {
+func HasTeamAccess(userID string, teamName string, minRole models.Role) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -27,9 +27,19 @@ func HasTeamAccess(userID string, teamID string, minRole models.Role) (bool, err
 		return false, err
 	}
 
+	// Get team
+	var team models.Team
+	if err := config.MI.DB.Collection("team").FindOne(ctx, &bson.M{"name": teamName}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, errors.New("team not found")
+		}
+
+		return false, err
+	}
+
 	// Loop through roles
 	for _, r := range userData.Roles {
-		if r.TeamID.Hex() == teamID {
+		if r.TeamID.Hex() == team.ID.Hex() {
 			if minRole != models.RoleNone {
 				// Make sure user has access as minimum role or higher
 				userRoleLvl, err := GetRoleLevel(r.Role)
@@ -54,51 +64,9 @@ func HasTeamAccess(userID string, teamID string, minRole models.Role) (bool, err
 	return false, nil
 }
 
-// Returns true if user has access to the given project (with any role).
-func HasProjectAccess(userID string, projectID string, minRole models.Role) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return false, errors.New("user not found")
-		}
-
-		return false, err
-	}
-
-	// Loop through roles
-	for _, r := range userData.Roles {
-		if r.ProjectID.Hex() == projectID {
-			if minRole != models.RoleNone {
-				// Make sure user has access as minimum role or higher
-				userRoleLvl, err := GetRoleLevel(r.Role)
-				if err != nil {
-					return false, err
-				}
-
-				minRoleLvl, err := GetRoleLevel(minRole)
-				if err != nil {
-					return false, err
-				}
-
-				return userRoleLvl >= minRoleLvl, nil
-			}
-
-			// User has access to project
-			return true, nil
-		}
-	}
-
-	// No role found for project, so user has no access
-	return false, nil
-}
-
 // Returns user's role, if any, for the given team.
 // If no role is found, returns `models.RoleNone`.
-func GetTeamRole(userID string, teamID string) (models.Role, error) {
+func GetTeamRole(userID string, teamName string) (models.Role, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -112,43 +80,25 @@ func GetTeamRole(userID string, teamID string) (models.Role, error) {
 		return models.RoleNone, err
 	}
 
+	// Get team
+	var team models.Team
+	if err := config.MI.DB.Collection("team").FindOne(ctx, &bson.M{"name": teamName}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return models.RoleNone, errors.New("team not found")
+		}
+
+		return models.RoleNone, err
+	}
+
 	// Loop through roles
 	for _, robj := range userData.Roles {
-		if robj.TeamID.Hex() == teamID {
+		if robj.TeamID.Hex() == team.ID.Hex() {
 			// User has a role for team
 			return robj.Role, nil
 		}
 	}
 
 	// No role found for team
-	return models.RoleNone, nil
-}
-
-// Returns user's role, if any, for the given project.
-// If no role is found, returns `models.RoleNone`.
-func GetProjectRole(userID string, projectID string) (models.Role, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.RoleNone, errors.New("user not found")
-		}
-
-		return models.RoleNone, err
-	}
-
-	// Loop through roles
-	for _, robj := range userData.Roles {
-		if robj.ProjectID.Hex() == projectID {
-			// User has a role for project
-			return robj.Role, nil
-		}
-	}
-
-	// No role found for project
 	return models.RoleNone, nil
 }
 
