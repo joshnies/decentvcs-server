@@ -12,11 +12,11 @@ func RouteBranches(router fiber.Router) {
 	router.Get("/", controllers.GetManyBranches)
 	router.Post("/", controllers.CreateBranch)
 	router.Get("/default", controllers.GetDefaultBranch)
-	router.Get("/:bid", controllers.GetOneBranch)
-	router.Post("/:bid", controllers.UpdateOneBranch)
-	router.Delete("/:bid", controllers.DeleteOneBranch)
-	router.Get("/:bid/commits", controllers.GetManyCommitsForBranch)
-	router.Delete("/:bid/commits", controllers.DeleteManyCommitsInBranch)
+	router.Get("/:branch_name", controllers.GetOneBranch)
+	router.Post("/:branch_name", controllers.UpdateOneBranch)
+	router.Delete("/:branch_name", controllers.DeleteOneBranch)
+	router.Get("/:branch_name/commits", controllers.GetManyCommitsForBranch)
+	router.Delete("/:branch_name/commits", controllers.DeleteManyCommitsInBranch)
 
-	RouteLocks(router.Group("/:bid/locks"))
+	RouteLocks(router.Group("/:branch_name/locks"))
 }

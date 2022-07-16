@@ -41,12 +41,12 @@ func main() {
 	routes.RouteAuth(app.Group("/"))
 	routes.RouteStytch(app.Group("/stytch"))
 	routes.RouteTeams(app.Group("/teams"))
+	routes.RouteProjects(app.Group("projects/:team_name/projects"))
 
-	teamGroup := app.Group("/teams/:tid")
-	routes.RouteProjects(teamGroup.Group("/projects"))
-	routes.RouteCommits(teamGroup.Group("/projects/:pid/commits"))
-	routes.RouteBranches(teamGroup.Group("/projects/:pid/branches"))
-	routes.RouteStorage(teamGroup.Group("/projects/:pid/storage"))
+	projectGroup := app.Group("/projects/:team_name/:project_name")
+	routes.RouteBranches(projectGroup.Group("/branches"))
+	routes.RouteCommits(projectGroup.Group("/commits"))
+	routes.RouteStorage(projectGroup.Group("/storage"))
 
 	// Start server
 	app.Listen(fmt.Sprintf(":%s", config.I.Port))
