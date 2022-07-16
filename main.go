@@ -49,7 +49,7 @@ func main() {
 	routes.RouteStorage(projectGroup.Group("/storage"))
 
 	// Start server
-	app.Listen(fmt.Sprintf(":%s", config.I.Port))
+	app.Listen(fmt.Sprintf(":%d", config.I.Port))
 
 	// After server stops:
 	// Close database connection

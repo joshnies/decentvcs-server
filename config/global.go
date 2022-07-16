@@ -28,7 +28,7 @@ type StytchConfig struct {
 type Config struct {
 	Debug           bool
 	LogResponseBody bool
-	Port            string
+	Port            uint8
 	Scheduler       *gocron.Scheduler
 	MaxInviteCount  int
 	Stytch          StytchConfig
@@ -38,12 +38,18 @@ type Config struct {
 // Global config instance
 var I Config
 
-func getPort() string {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+func getPort() uint8 {
+	portStr := os.Getenv("PORT")
+	if portStr == "" {
+		portStr = "8080"
 	}
-	return port
+
+	port, err := strconv.ParseUint(portStr, 10, 8)
+	if err != nil {
+		log.Fatal("Invalid PORT environment variable")
+	}
+
+	return uint8(port)
 }
 
 // Initialize global config instance
