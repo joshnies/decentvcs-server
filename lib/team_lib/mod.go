@@ -7,12 +7,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// Get team from user context.
+func GetTeamFromContext(c *fiber.Ctx) *models.Team {
+	return c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
+}
 
 // Create the default team for a new user.
 func CreateDefault(userID string, email string) (models.Team, error) {

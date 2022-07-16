@@ -12,7 +12,6 @@ const (
 )
 
 type RoleObject struct {
-	Role      Role               `json:"role" bson:"role"`
-	TeamID    primitive.ObjectID `json:"team_id,omitempty" bson:"team_id,omitempty"`
-	ProjectID primitive.ObjectID `json:"project_id,omitempty" bson:"project_id,omitempty"`
+	Role   Role               `json:"role" bson:"role"`
+	TeamID primitive.ObjectID `json:"team_id,omitempty" bson:"team_id,omitempty"`
 }
