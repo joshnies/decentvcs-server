@@ -20,7 +20,7 @@ import (
 // Get one team.
 func GetOneTeam(c *fiber.Ctx) error {
 	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_id"))
+	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -157,7 +157,7 @@ func CreateTeam(c *fiber.Ctx) error {
 // Only team admins can update a team.
 func UpdateTeam(c *fiber.Ctx) error {
 	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_id"))
+	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
@@ -268,7 +268,7 @@ func DeleteTeam(c *fiber.Ctx) error {
 	}
 
 	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("team_id"))
+	teamID, err := primitive.ObjectIDFromHex(c.Params("team_name"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Bad request",
