@@ -41,9 +41,9 @@ func main() {
 	routes.RouteAuth(app.Group("/"))
 	routes.RouteStytch(app.Group("/stytch"))
 	routes.RouteTeams(app.Group("/teams"))
-	routes.RouteProjects(app.Group("projects/:team_name/projects"))
 
 	projectGroup := app.Group("/projects/:team_name/:project_name")
+	routes.RouteProjects(projectGroup)
 	routes.RouteBranches(projectGroup.Group("/branches"))
 	routes.RouteCommits(projectGroup.Group("/commits"))
 	routes.RouteStorage(projectGroup.Group("/storage"))

@@ -14,7 +14,7 @@ func RouteBranches(router fiber.Router) {
 	router.Post("/", controllers.CreateBranch)
 	router.Get("/default", controllers.GetDefaultBranch)
 	router.Get("/:branch_name", controllers.GetOneBranch)
-	router.Post("/:branch_name", controllers.UpdateBranch)
+	router.Put("/:branch_name", controllers.UpdateBranch)
 	router.Delete("/:branch_name", controllers.SoftDeleteOneBranch)
 	router.Delete("/:branch_name/commits", controllers.DeleteManyCommitsInBranch)
 

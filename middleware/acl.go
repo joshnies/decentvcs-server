@@ -14,19 +14,13 @@ import (
 // If `minRole` is nil, any role is allowed.
 func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		// Get URL params
+		userData := auth.GetUserDataFromContext(c)
 		teamName := c.Params("team_name")
 
-		// Get user ID
-		userID, err := auth.GetUserID(c)
-		if err != nil {
-			return err
-		}
-
 		// Check if user has access to team
-		res, err := acl.HasTeamAccess(userID, teamName, minRole)
+		res, err := acl.HasTeamAccess(userData, teamName, minRole)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[middleware.HasTeamAccess] Failed to determine team access: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
@@ -37,7 +31,7 @@ func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 			})
 		}
 
-		// Add user to context for later use
+		// Add team to user context for later use
 		ctx := context.WithValue(c.UserContext(), models.ContextKeyTeam, res.Team)
 		c.SetUserContext(ctx)
 

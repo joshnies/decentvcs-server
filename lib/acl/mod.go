@@ -13,23 +13,13 @@ import (
 )
 
 // Returns true if user has access to the given team (with any role).
-func HasTeamAccess(userID string, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
+func HasTeamAccess(userData models.UserData, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, &bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return models.HasTeamAccessResponse{HasAccess: false}, errors.New("user not found")
-		}
-
-		return models.HasTeamAccessResponse{HasAccess: false}, err
-	}
-
 	// Get team
 	var team models.Team
-	if err := config.MI.DB.Collection("team").FindOne(ctx, &bson.M{"name": teamName}).Decode(&userData); err != nil {
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, &bson.M{"name": teamName}).Decode(&team); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return models.HasTeamAccessResponse{HasAccess: false}, errors.New("team not found")
 		}

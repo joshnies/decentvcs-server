@@ -46,6 +46,8 @@ func GetOneProject(c *fiber.Ctx) error {
 
 // Create a new project. Only team admins can create new projects for the team.
 func CreateProject(c *fiber.Ctx) error {
+	fmt.Printf("[DEBUG] CreateProject route\n")
+
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")
 

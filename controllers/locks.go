@@ -216,7 +216,7 @@ func Unlock(c *fiber.Ctx) error {
 				// - "force" was not provided
 				// - "force" was provided but user is not an admin or higher for the project
 				if force {
-					teamAccess, err := acl.HasTeamAccess(userData.UserID, team.Name, models.RoleAdmin)
+					teamAccess, err := acl.HasTeamAccess(userData, team.Name, models.RoleAdmin)
 					if err != nil || !teamAccess.HasAccess {
 						return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 							"error": "You do not have permission to force unlock files",
