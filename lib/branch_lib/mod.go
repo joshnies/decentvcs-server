@@ -2,6 +2,7 @@ package branch_lib
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/joshnies/decent-vcs/config"
@@ -12,8 +13,6 @@ import (
 
 // Get branch with its latest commit using a MongoDB aggregation pipeline.
 func GetOneWithCommit(teamID primitive.ObjectID, projectName string, branchName string) (*models.BranchWithCommit, error) {
-	// TODO: Use project and branch ObjectIDs instead of names to allow for external fetching
-
 	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -65,7 +64,7 @@ func GetOneWithCommit(teamID primitive.ObjectID, projectName string, branchName 
 	var branch models.BranchWithCommit
 	err = cur.Decode(&branch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode branch: %v", err)
 	}
 
 	return &branch, nil
