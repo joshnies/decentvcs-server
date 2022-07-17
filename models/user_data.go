@@ -10,7 +10,8 @@ import (
 type UserData struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
-	UserID    string             `json:"user_id" bson:"user_id"`
+	// ID of the user in our auth provider.
+	UserID string `json:"user_id" bson:"user_id"`
 	// Roles for teams and projects.
 	Roles []RoleObject `json:"roles" bson:"roles"`
 	// ID of the team that new projects will be created in by default.

@@ -9,5 +9,5 @@ import (
 func RouteStytch(router fiber.Router) {
 	router.Use(middleware.IsAuthenticated)
 
-	router.Get("/users/:uid", controllers.GetOneStytchUser)
+	router.Get("/users/:user_id", controllers.GetOneStytchUser)
 }

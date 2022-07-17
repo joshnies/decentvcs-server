@@ -2,15 +2,21 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
+	"github.com/sendgrid/sendgrid-go"
+	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
+	"github.com/stytchauth/stytch-go/v5/stytch"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,27 +25,8 @@ import (
 
 // Get one team.
 func GetOneTeam(c *fiber.Ctx) error {
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get team
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not found",
-			"message": "Team not found",
-		})
-	}
-
+	// Return team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
 	return c.JSON(team)
 }
 
@@ -68,8 +55,7 @@ func GetManyTeams(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Not found",
-			"message": "Team not found",
+			"error": "Team not found",
 		})
 	}
 
@@ -92,16 +78,14 @@ func CreateTeam(c *fiber.Ctx) error {
 	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -113,8 +97,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
 	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "A team with that name already exists",
+			"error": "A team with that name already exists",
 		})
 	}
 	if err != nil {
@@ -134,8 +117,7 @@ func CreateTeam(c *fiber.Ctx) error {
 
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal server error",
-			"message": "Failed to create team",
+			"error": "Failed to create team",
 		})
 	}
 
@@ -156,29 +138,21 @@ func CreateTeam(c *fiber.Ctx) error {
 // Update a team.
 // Only team admins can update a team.
 func UpdateTeam(c *fiber.Ctx) error {
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
+	// Get team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
 
 	// Parse request body
 	var reqBody models.UpdateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -188,11 +162,10 @@ func UpdateTeam(c *fiber.Ctx) error {
 	if reqBody.Name != "" {
 		// Check if team name is unique
 		var existingTeam models.Team
-		err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
+		err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
 		if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": "A team with that name already exists",
+				"error": "A team with that name already exists",
 			})
 		}
 		if err != nil {
@@ -201,22 +174,6 @@ func UpdateTeam(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
-	}
-
-	// Get team
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Team not found",
-			})
-		}
-
-		fmt.Printf("Error getting team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
 	}
 
 	updateData := bson.M{}
@@ -244,7 +201,7 @@ func UpdateTeam(c *fiber.Ctx) error {
 	}
 
 	// Update team
-	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": teamID}, bson.M{"$set": updateData}); err != nil {
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": updateData}); err != nil {
 		fmt.Printf("Error updating team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -259,6 +216,9 @@ func UpdateTeam(c *fiber.Ctx) error {
 // Only team owners can delete a team.
 // A user's default team cannot be deleted.
 func DeleteTeam(c *fiber.Ctx) error {
+	// Get team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
+
 	// Get user ID
 	userID, err := auth.GetUserID(c)
 	if err != nil {
@@ -267,50 +227,23 @@ func DeleteTeam(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get team ID
-	teamID, err := primitive.ObjectIDFromHex(c.Params("tid"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid team ID",
-		})
-	}
-
 	// Parse request body
 	var reqBody models.CreateTeamRequest
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// Get team to make sure it exists
-	var team models.Team
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"_id": teamID}).Decode(&team); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not found",
-				"message": "Team not found",
-			})
-		}
-
-		fmt.Printf("Error getting team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
 
 	// Get user data
 	var userData models.UserData
@@ -329,13 +262,12 @@ func DeleteTeam(c *fiber.Ctx) error {
 	// Ensure deleting team is not the default for the user
 	if team.ID.Hex() == userData.DefaultTeamID.Hex() {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Cannot delete default team",
+			"error": "Cannot delete default team",
 		})
 	}
 
 	// Delete team
-	if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": teamID}); err != nil {
+	if _, err := config.MI.DB.Collection("teams").DeleteOne(ctx, bson.M{"_id": team.ID}); err != nil {
 		fmt.Printf("Error deleting team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -345,4 +277,172 @@ func DeleteTeam(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Team deleted successfully",
 	})
+}
+
+// Invite many users to a team.
+func InviteToTeam(c *fiber.Ctx) error {
+	team := team_lib.GetTeamFromContext(c)
+
+	// Parse request body
+	var body models.InviteManyUsersDTO
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Limit email count to prevent request timeouts
+	if len(body.Emails) > config.I.MaxInviteCount {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad request",
+			"message": fmt.Sprintf("Too many emails; limit: %d", config.I.MaxInviteCount),
+		})
+	}
+
+	// Validate emails in request body
+	for _, email := range body.Emails {
+		if _, err := mail.ParseAddress(email); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Bad request",
+				"message": fmt.Sprintf("Invalid email: %s", email),
+			})
+		}
+	}
+
+	// Loop through emails
+	for _, email := range body.Emails {
+		// Check if user exists
+		searchRes, err := config.StytchClient.Users.Search(&stytch.UsersSearchParams{
+			Limit: 1,
+			Query: &stytch.UsersSearchQuery{
+				Operator: stytch.UserSearchOperatorAND,
+				Operands: []json.Marshaler{
+					stytch.UsersSearchQueryEmailAddressFilter{EmailAddresses: []string{email}},
+				},
+			},
+		})
+		if err != nil {
+			fmt.Println(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		if len(searchRes.Results) == 0 {
+			// User does not exist in auth provider, invite them via email
+			inviteRes, err := config.StytchClient.MagicLinks.Email.Invite(&stytch.MagicLinksEmailInviteParams{
+				Email:                   email,
+				InviteMagicLinkURL:      config.I.Stytch.InviteRedirectURL,
+				InviteExpirationMinutes: 1440, // 24 hours
+				Attributes: stytch.Attributes{
+					IPAddress: c.IP(),
+					// UserAgent: c.Get("User-Agent"),
+				},
+			})
+			if err != nil {
+				fmt.Printf("Error sending invite to \"%s\" %v\n", email, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create default team in database
+			team, err := team_lib.CreateDefault(inviteRes.UserID, email)
+			if err != nil {
+				fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create user data in database with project role
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			userData := models.UserData{
+				UserID:        inviteRes.UserID,
+				DefaultTeamID: team.ID,
+				Roles: []models.RoleObject{
+					{
+						Role:   models.RoleCollab,
+						TeamID: team.ID,
+					},
+				},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("Error creating user data for new invited user with ID \"%s\": %v\n", inviteRes.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			// User already exists in auth provider, get user data from database
+			stytchUser := searchRes.Results[0]
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			var userData models.UserData
+			if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
+				if errors.Is(err, mongo.ErrNoDocuments) {
+					fmt.Printf("User data not found while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
+				} else {
+					fmt.Printf("Error getting user data while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
+				}
+
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Skip this user if they already have a role for the project
+			skip := false
+			for _, r := range userData.Roles {
+				if r.TeamID.Hex() == team.ID.Hex() {
+					skip = true
+					if config.I.Debug {
+						fmt.Printf("Skipped inviting user with ID \"%s\" to team \"%s\" since they already have a role for the team\n", team.Name, stytchUser.UserID)
+					}
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+
+			// Add role to user data
+			userData.Roles = append(userData.Roles, models.RoleObject{
+				Role:   models.RoleCollab,
+				TeamID: team.ID,
+			})
+			if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"user_id": stytchUser.UserID}, bson.M{"$set": bson.M{"roles": userData.Roles}}); err != nil {
+				fmt.Printf("Error updating user data while inviting existing user with ID \"%s\" to a project: %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Send user an email saying that they've been invited
+			m := sgmail.NewV3Mail()
+			m.SetTemplateID(config.I.Email.Templates.InviteExistingUser)
+			from := sgmail.NewEmail("Decent", config.I.Email.NoReplyEmail)
+			m.SetFrom(from)
+			p := sgmail.NewPersonalization()
+			to := sgmail.NewEmail(fmt.Sprintf("%s %s", stytchUser.Name.FirstName, stytchUser.Name.LastName), stytchUser.Emails[0].Email)
+			p.AddTos(to)
+			p.SetDynamicTemplateData("team_name", team.Name)
+			m.AddPersonalizations(p)
+			sgreq := sendgrid.GetRequest(config.I.Email.SendGridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
+			sgreq.Method = "POST"
+			sgreq.Body = sgmail.GetRequestBody(m)
+			_, err := sendgrid.API(sgreq)
+			if err != nil {
+				fmt.Printf("Error sending invite email to existing user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		}
+	}
+
+	return nil
 }

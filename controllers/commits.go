@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -10,38 +11,17 @@ import (
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/lib/branch_lib"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Get many commits for the given project, regardless of branch.
-//
-// URL params:
-//
-// - pid: project ID
-//
-// Query params:
-//
-// - before: commit ID to compare with
-//
-// - after: commit ID to compare with
-//
-// - limit: number of commits to return
-//
+// Get many commits for the given project.
 func GetManyCommits(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
 
 	// Get limit query param
 	limitStr := c.Query("limit")
@@ -59,15 +39,48 @@ func GetManyCommits(c *fiber.Ctx) error {
 		comparedCommitIdStr = c.Query("after")
 	}
 
+	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[GetManyCommits] Error getting project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// If "branch_name" query param set, get branch from database
+	var branch models.Branch
+	branchName := c.Query("branch_name")
+	if branchName != "" {
+		if err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"project_id": project.ID, "name": branchName}).Decode(&branch); err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"error": "Branch not found",
+				})
+			}
+
+			fmt.Printf("[GetManyCommits] Error getting branch: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+	}
 
 	// If "before" or "after" query param set, get it from database
 	var comparedCommit models.Commit
 	if comparedCommitIdStr != "" {
 		comparedCommitId, err := primitive.ObjectIDFromHex(comparedCommitIdStr)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[GetManyCommits] Error getting compared commit: %v\n", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error":   "Bad request",
 				"message": "Invalid commit ID; must be an ObjectID hexadecimal",
@@ -77,7 +90,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 		// Get compared commit from database
 		err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{
 			"_id":        comparedCommitId,
-			"project_id": projectId,
+			"project_id": project.ID,
 		}).Decode(&comparedCommit)
 		if err == mongo.ErrNoDocuments {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -88,7 +101,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 	}
 
 	// Build bson filter
-	filter := bson.M{"project_id": projectId}
+	filter := bson.M{"project_id": project.ID}
 
 	if comparedCommitIdStr != "" {
 		if c.Query("before") != "" {
@@ -104,7 +117,9 @@ func GetManyCommits(c *fiber.Ctx) error {
 		}
 	}
 
-	fmt.Printf("Filter: %+v\n", filter)
+	if branchName != "" {
+		filter["branch_id"] = branch.ID
+	}
 
 	// Get commits from mongo
 	// Includes branch
@@ -136,7 +151,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("[GetManyCommits] Error getting commits: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -149,137 +164,7 @@ func GetManyCommits(c *fiber.Ctx) error {
 		var decoded models.CommitWithBranch
 		err := cur.Decode(&decoded)
 		if err != nil {
-			fmt.Println(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		result = append(result, decoded)
-	}
-
-	return c.JSON(result)
-}
-
-// Get many commits for the given branch.
-//
-// URL params:
-//
-// - pid: project ID
-//
-// - bid: branch ID
-//
-// Query params:
-//
-// - before: commit ID to compare with
-//
-// - after: commit ID to compare with
-//
-// - limit: number of commits to return
-//
-func GetManyCommitsForBranch(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
-	// Get branch ID
-	branchId, err := primitive.ObjectIDFromHex(c.Params("bid"))
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch ID",
-		})
-	}
-
-	// Get limit query param
-	limitStr := c.Query("limit")
-	if limitStr == "" {
-		limitStr = "10"
-	}
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
-	if err != nil || limit <= 0 {
-		limit = 10
-	}
-
-	// Get compared commit ID as string
-	comparedCommitIdStr := c.Query("before")
-	if comparedCommitIdStr == "" {
-		comparedCommitIdStr = c.Query("after")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// If "before" or "after" query param set, get it from database
-	var comparedCommit models.Commit
-	if comparedCommitIdStr != "" {
-		comparedCommitId, err := primitive.ObjectIDFromHex(comparedCommitIdStr)
-		if err != nil {
-			fmt.Println(err)
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": "Invalid commit ID; must be an ObjectID hexadecimal",
-			})
-		}
-
-		// Get compared commit from database
-		err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{
-			"_id":        comparedCommitId,
-			"project_id": projectId,
-			"branch_id":  branchId,
-		}).Decode(&comparedCommit)
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Bad request",
-				"message": "No commit found for query param",
-			})
-		}
-	}
-
-	// Get commits from database
-	filter := bson.M{"project_id": projectId, "branch_id": branchId}
-
-	if comparedCommitIdStr != "" {
-		if c.Query("before") != "" {
-			// Before
-			filter["created_at"] = bson.M{
-				"$lt": comparedCommit.CreatedAt,
-			}
-		} else {
-			// After
-			filter["created_at"] = bson.M{
-				"$gt": comparedCommit.CreatedAt,
-			}
-		}
-	}
-
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, filter,
-		options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}}), // ascending
-		options.Find().SetLimit(limit),
-	)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-	defer cur.Close(ctx)
-
-	// Iterate over the results and decode into slice of Commits
-	var result []models.Commit
-	for cur.Next(ctx) {
-		var decoded models.Commit
-		err := cur.Decode(&decoded)
-		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[GetManyCommits] Error decoding commits: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
@@ -292,78 +177,47 @@ func GetManyCommitsForBranch(c *fiber.Ctx) error {
 }
 
 // Get one commit by index.
-func GetOneCommitByIndex(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
+func GetOneCommit(c *fiber.Ctx) error {
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
 
 	// Get branch index
-	idx, err := strconv.Atoi(c.Params("idx"))
+	idx, err := strconv.Atoi(c.Params("commit_index"))
 	if err != nil || idx <= 0 {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid commit index. Must be a positive integer",
+			"error": "Invalid commit index. Must be a positive non-zero integer",
 		})
 	}
 
-	// Get commit from database
+	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result models.Commit
-	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": projectId, "index": idx}).Decode(&result)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[GetOneCommit] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
 
-	return c.JSON(result)
-}
-
-// Get one commit by ID.
-func GetOneCommitByID(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	_, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
-	// Get query params
-	objId, _ := primitive.ObjectIDFromHex(c.Params("cid"))
-
 	// Get commit from database
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	var result models.Commit
-	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"_id": objId}).Decode(&result)
+	err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"project_id": project.ID, "index": idx}).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Not found",
 		})
 	}
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("[GetOneCommit] Error getting commit: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -373,58 +227,49 @@ func GetOneCommitByID(c *fiber.Ctx) error {
 }
 
 // Create a new commit.
-func CreateOneCommit(c *fiber.Ctx) error {
-	// Get user ID
-	userID, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
-
-	// Get project ID
-	pidStr := c.Params("pid")
-	pid, err := primitive.ObjectIDFromHex(pidStr)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID; must be an ObjectID hexadecimal",
-		})
-	}
+func CreateCommit(c *fiber.Ctx) error {
+	userData := auth.GetUserDataFromContext(c)
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+	branchName := c.Params("branch_name")
 
 	// Parse request body
 	var reqBody models.CreateCommitRequest
 	if err := c.BodyParser(&reqBody); err != nil {
-		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
 	// Validate request body
 	if err := config.Validator.Struct(reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
-	// Get branch ID
-	bid, err := primitive.ObjectIDFromHex(reqBody.BranchID)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch_id; must be an ObjectID hexadecimal",
+	// Get project from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[CreateCommit] Error getting project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
 		})
 	}
 
 	// Get branch with commit
-	branch, err := branch_lib.GetOneWithCommit(pid, bid)
+	branch, err := branch_lib.GetOneWithCommit(team.ID, projectName, branchName)
 	if err != nil {
-		fmt.Printf("Error getting branch: %v\n", err)
+		fmt.Printf("[CreateCommit] Error getting branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -436,10 +281,9 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	combinedFiles = append(combinedFiles, reqBody.DeletedFiles...)
 	for _, path := range combinedFiles {
 		if lockedBy, ok := branch.Locks[path]; ok {
-			if lockedBy != userID {
+			if lockedBy != userData.UserID {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error":   "Bad request",
-					"message": fmt.Sprintf("File \"%s\" is locked by %s", path, lockedBy),
+					"error": fmt.Sprintf("File \"%s\" is locked by %s", path, lockedBy),
 				})
 			}
 		}
@@ -450,34 +294,27 @@ func CreateOneCommit(c *fiber.Ctx) error {
 		ID:            primitive.NewObjectID(),
 		CreatedAt:     time.Now(),
 		Index:         branch.Commit.Index + 1,
-		ProjectID:     pid,
-		BranchID:      bid,
+		ProjectID:     project.ID,
+		BranchID:      branch.ID,
 		Message:       reqBody.Message,
 		CreatedFiles:  reqBody.CreatedFiles,
 		ModifiedFiles: reqBody.ModifiedFiles,
 		DeletedFiles:  reqBody.DeletedFiles,
 		HashMap:       reqBody.HashMap,
-		AuthorID:      userID,
+		AuthorID:      userData.UserID,
 	}
 
 	// Insert commit into database
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit)
-	if err != nil {
-		fmt.Println("Failed to insert commit into database.")
-		fmt.Println(err)
+	if _, err = config.MI.DB.Collection("commits").InsertOne(ctx, commit); err != nil {
+		fmt.Printf("[CreateCommit] Failed to insert commit into database: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
 
 	// Update branch to point to new commit
-	_, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{"commit_id": commit.ID}})
-	if err != nil {
-		fmt.Println("Failed to update branch.")
-		fmt.Println(err)
+	if _, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branch.ID}, bson.M{"$set": bson.M{"commit_id": commit.ID}}); err != nil {
+		fmt.Printf("[CreateCommit] Failed to update branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -486,80 +323,102 @@ func CreateOneCommit(c *fiber.Ctx) error {
 	return c.JSON(commit)
 }
 
-// Update one commit.
-func UpdateOneCommit(c *fiber.Ctx) error {
+// Update a commit.
+func UpdateCommit(c *fiber.Ctx) error {
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+	commitIndex := c.Params("commit_index")
+
 	// Parse request body
 	var commit models.Commit
 	if err := c.BodyParser(&commit); err != nil {
 		fmt.Println(err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid request body",
+			"error": "Invalid request body",
 		})
 	}
 
-	// Create commit ObjectID
-	commitId, err := primitive.ObjectIDFromHex(c.Params("cid"))
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid commit ID; must be an ObjectID hexadecimal",
-		})
-	}
-
-	// Update commit in database
+	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = config.MI.DB.Collection("commits").UpdateOne(ctx, bson.M{"_id": commitId}, bson.M{"$set": commit})
-	if err != nil {
-		fmt.Println(err)
+
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[UpdateOneCommit] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
 	}
 
-	commit.ID = commitId
-	return c.JSON(commit)
+	// Update commit in database
+	if _, err := config.MI.DB.Collection("commits").UpdateOne(ctx, bson.M{"project_id": project.ID, "index": commitIndex}, bson.M{"$set": commit}); err != nil {
+		fmt.Printf("[UpdateCommit] Error updating commit: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Updated commit successfully",
+	})
 }
 
 // Delete many commits after the specified index in the specified branch.
-//
-// URL params:
-//
-// - pid: project ID
-//
-// - bid: branch ID
-//
-// Query params:
-//
-// - after: commit index to delete commits after (required, since it's currently the only param)
-//
 func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
-	// Get branch ID
-	bid, err := primitive.ObjectIDFromHex(c.Params("bid"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid branch ID; must be an ObjectID hexadecimal",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+	branchName := c.Params("branch_name")
 
 	// Get "after" query param
 	after, err := strconv.Atoi(c.Query("after"))
 	if err != nil || after <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid query param \"after\"; must be a positive integer",
+			"error": "Invalid query param \"after\"; must be a positive non-zero integer",
 		})
 	}
 
+	// Get project from database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[UpdateOneCommit] Error getting project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Get branch from database
+	var branch models.Branch
+	if err := config.MI.DB.Collection("branches").FindOne(ctx, bson.M{"project_id": project.ID, "name": branchName}).Decode(&branch); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Branch not found",
+			})
+		}
+
+		fmt.Printf("[UpdateOneCommit] Error getting branch: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	// Get commit with index
 	var afterCommit models.Commit
-	if err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"branch_id": bid, "index": after}).Decode(&afterCommit); err != nil {
+	if err = config.MI.DB.Collection("commits").FindOne(ctx, bson.M{"branch_id": branch.ID, "index": after}).Decode(&afterCommit); err != nil {
 		fmt.Printf("[DeleteManyCommitsInBranch] Error getting commit with index: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -567,7 +426,7 @@ func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
 	}
 
 	// Update branch to point to commit with specified index
-	if _, err := config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{"commit_id": afterCommit.ID}}); err != nil {
+	if _, err := config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branch.ID}, bson.M{"$set": bson.M{"commit_id": afterCommit.ID}}); err != nil {
 		fmt.Printf("[DeleteManyCommitsInBranch] Error updating branch: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -575,7 +434,7 @@ func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
 	}
 
 	// Delete commits after specified index
-	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"branch_id": bid, "index": bson.M{"$gt": after}}); err != nil {
+	if _, err := config.MI.DB.Collection("commits").DeleteMany(ctx, bson.M{"branch_id": branch.ID, "index": bson.M{"$gt": after}}); err != nil {
 		fmt.Printf("[DeleteManyCommitsInBranch] Error deleting many commits after: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -583,6 +442,6 @@ func DeleteManyCommitsInBranch(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Successfully deleted commits",
+		"message": "Deleted commits successfully",
 	})
 }

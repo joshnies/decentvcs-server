@@ -8,7 +8,7 @@ import (
 // Get one user from Stytch.
 func GetOneStytchUser(c *fiber.Ctx) error {
 	// Get Stytch user ID
-	userID := c.Params("uid")
+	userID := c.Params("user_id")
 
 	// Get user
 	user, err := auth.GetStytchUserByID(userID)
