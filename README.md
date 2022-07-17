@@ -44,41 +44,28 @@ dvcs-server
 
 ## REST API Routes
 
-| Method | Path                                        | Description                                      |
-| ------ | ------------------------------------------- | ------------------------------------------------ |
-| GET    | `/projects`                                 | Get many projects                                |
-| POST   | `/projects`                                 | Create one project                               |
-| GET    | `/projects/:team_name/:project_name`        | Get one project by blob (team_name/project_name) |
-| GET    | `/projects/:pid`                            | Get one project by ID                            |
-| POST   | `/projects/:pid`                            | Update one project by ID                         |
-| GET    | `/projects/:pid/branches`                   | Get many branches for a project                  |
-| POST   | `/projects/:pid/branches`                   | Create one branch for a project                  |
-| GET    | `/projects/:pid/branches/default`           | Get the default branch of a project              |
-| GET    | `/projects/:pid/branches/:bid_or_name`      | Get one branch by ID or name for a project       |
-| DELETE | `/projects/:pid/branches/:bid_or_name`      | Delete one branch by ID or name for a project    |
-| GET    | `/projects/:pid/branches/:bid/commits`      | Get many commits for a branch                    |
-| GET    | `/projects/:pid/commits`                    | Get many commits for a project                   |
-| POST   | `/projects/:pid/commits`                    | Create one commit for a project                  |
-| GET    | `/projects/:pid/commits/index/:idx`         | Get one commit by index for a project            |
-| GET    | `/projects/:pid/commits/:cid`               | Get one commit by ID for a project               |
-| GET    | `/projects/:pid/commits/:cid`               | Update one commit for a project                  |
-| GET    | `/projects/:pid/storage/presign/many`       | Presign many objects (`GET` method only)         |
-| POST   | `/projects/:pid/storage/presign/:method`    | Presign one object                               |
-| POST   | `/projects/:pid/storage/multipart/complete` | Complete a multipart upload                      |
-| DELETE | `/projects/:pid/storage/unused`             | Delete all unused files in storage for a project |
-| GET    | `/teams`                                    | Get many teams                                   |
-| POST   | `/teams`                                    | Create one team                                  |
-| GET    | `/teams/:tid`                               | Get one team by ID                               |
-| POST   | `/teams/:tid`                               | Update one team by ID                            |
-| DELETE | `/teams/:tid`                               | Delete one team by ID                            |
-| GET    | `/users/:uid`                               | Get one Stytch user                              |
-
-### Terminology
-
-| Term  | Description         |
-| ----- | ------------------- |
-| `pid` | Project ID          |
-| `bid` | Branch ID           |
-| `cid` | Commit ID           |
-| `tid` | Team ID             |
-| `uid` | User ID (in Stytch) |
+| Method | Path                                                               | Description                                      |
+| ------ | ------------------------------------------------------------------ | ------------------------------------------------ |
+| POST   | `/projects`                                                        | Create one project                               |
+| GET    | `/projects/:team_name/:project_name`                               | Get one project                                  |
+| PUT    | `/projects/:team_name/:project_name`                               | Update one project by ID                         |
+| GET    | `/projects/:team_name/:project_name/branches`                      | Get many branches for a project                  |
+| POST   | `/projects/:team_name/:project_name/branches`                      | Create one branch for a project                  |
+| GET    | `/projects/:team_name/:project_name/branches/default`              | Get the default branch of a project              |
+| GET    | `/projects/:team_name/:project_name/branches/:branch_name`         | Get one branch by ID or name for a project       |
+| DELETE | `/projects/:team_name/:project_name/branches/:branch_name`         | Delete one branch by ID or name for a project    |
+| GET    | `/projects/:team_name/:project_name/branches/:branch_name/commits` | Get many commits for a branch                    |
+| GET    | `/projects/:team_name/:project_name/commits`                       | Get many commits for a project                   |
+| POST   | `/projects/:team_name/:project_name/branches/:branch_name/commit`  | Create one commit                                |
+| GET    | `/projects/:team_name/:project_name/commits/:commit_index`         | Get one commit for a project                     |
+| PUT    | `/projects/:team_name/:project_name/commits/:commit_index`         | Update one commit for a project                  |
+| GET    | `/projects/:team_name/:project_name/storage/presign/many`          | Presign many objects (`GET` method only)         |
+| POST   | `/projects/:team_name/:project_name/storage/presign/:method`       | Presign one object                               |
+| POST   | `/projects/:team_name/:project_name/storage/multipart/complete`    | Complete a multipart upload                      |
+| DELETE | `/projects/:team_name/:project_name/storage/unused`                | Delete all unused files in storage for a project |
+| GET    | `/teams`                                                           | Get many teams                                   |
+| POST   | `/teams`                                                           | Create one team                                  |
+| GET    | `/teams/:team_name`                                                | Get one team                                     |
+| PUT    | `/teams/:team_name`                                                | Update one team                                  |
+| DELETE | `/teams/:team_name`                                                | Delete one team                                  |
+| GET    | `/users/:user_id`                                                  | Get one Stytch user                              |
