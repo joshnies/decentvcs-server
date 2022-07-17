@@ -276,7 +276,7 @@ func CreateBranch(c *fiber.Ctx) error {
 	}
 
 	// Validate branch name
-	regex := regexp.MustCompile(`^[\w\-]+$`)
+	regex := regexp.MustCompile(`^[\w\-\.]+$`)
 	if !regex.MatchString(body.Name) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid branch name; must be alphanumeric with dashes",

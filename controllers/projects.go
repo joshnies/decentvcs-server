@@ -151,7 +151,7 @@ func UpdateProject(c *fiber.Ctx) error {
 	updateData := bson.M{}
 	if body.Name != "" {
 		// Validate
-		regex := regexp.MustCompile(`^[\w\-]+$`)
+		regex := regexp.MustCompile(`^[\w\-\.]+$`)
 		if !regex.MatchString(body.Name) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid name; must be alphanumeric with dashes",
