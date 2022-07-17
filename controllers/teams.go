@@ -280,7 +280,7 @@ func DeleteTeam(c *fiber.Ctx) error {
 }
 
 // Invite many users to a team.
-func InviteManyUsers(c *fiber.Ctx) error {
+func InviteToTeam(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 
 	// Parse request body

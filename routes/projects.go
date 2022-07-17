@@ -14,5 +14,4 @@ func RouteProjects(router fiber.Router) {
 	router.Get("/", middleware.HasTeamAccess(models.RoleNone), controllers.GetOneProject)
 	router.Put("/", middleware.HasTeamAccess(models.RoleNone), controllers.UpdateProject)
 	router.Delete("/", middleware.HasTeamAccess(models.RoleOwner), controllers.DeleteOneProject)
-	router.Post("/:project_name/invite", middleware.HasTeamAccess(models.RoleAdmin), controllers.InviteManyUsers)
 }
