@@ -1,11 +1,15 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type Branch struct {
 	ID        primitive.ObjectID `json:"_id" bson:"_id"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
-	DeletedAt int64              `json:"deleted_at" bson:"deleted_at"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+	DeletedAt time.Time          `json:"deleted_at" bson:"deleted_at"`
 	Name      string             `json:"name" bson:"name" validate:"required"`
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id" validate:"required"`
 	// ID of the commit that this branch currently points to (a.k.a. the latest commit).
@@ -17,8 +21,8 @@ type Branch struct {
 
 type BranchWithCommit struct {
 	ID        primitive.ObjectID `json:"_id" bson:"_id"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
-	DeletedAt int64              `json:"deleted_at" bson:"deleted_at"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+	DeletedAt time.Time          `json:"deleted_at" bson:"deleted_at"`
 	Name      string             `json:"name" bson:"name"`
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id"`
 	// The commit that this branch currently points to (a.k.a. the latest commit).
@@ -36,7 +40,7 @@ type BranchCreateDTO struct {
 
 type BranchCreateBSON struct {
 	ID        primitive.ObjectID `json:"_id" bson:"_id"`
-	CreatedAt int64              `json:"created_at" bson:"created_at"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	Name      string             `json:"name" bson:"name"`
 	ProjectID primitive.ObjectID `json:"project_id" bson:"project_id"`
 	// The commit that this branch currently points to (a.k.a. the latest commit).

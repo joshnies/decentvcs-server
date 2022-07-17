@@ -10,10 +10,10 @@ import (
 	awstypes "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -30,38 +30,25 @@ const (
 //
 // Use `PresignOne` with the `PUT` method argument if you need to create PUT URLs.
 //
-// URL params:
-//
-// - pid: Project ID
-//
-// Request Body: `PresignManyRequestBody`
-//
 // Returns an array of presigned URLs.
 //
 func PresignManyGET(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
 
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[PresignManyGET] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -82,13 +69,16 @@ func PresignManyGET(c *fiber.Ctx) error {
 	keyUrlMap := make(map[string]string)
 
 	for _, localKey := range body.Keys {
-		remoteKey := fmt.Sprintf("%s/%s", pid, localKey)
+		remoteKey := fmt.Sprintf("%s/%s", project.ID.Hex(), localKey)
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
 			Bucket: &config.SI.Bucket,
 			Key:    &remoteKey,
 		})
 		if err != nil {
-			panic(err)
+			fmt.Printf("[PresignManyGET] Error generating presigned URL: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
 		}
 
 		keyUrlMap[localKey] = res.URL
@@ -101,17 +91,12 @@ func PresignManyGET(c *fiber.Ctx) error {
 // These URLs are used by the client to upload files to storage without the need for
 // access keys or ACL.
 //
-// URL params:
-//
-// - pid: Project ID
-//
-// - method: Presign method ("PUT" or "GET")
-//
-// Body: TODO
-//
 // Returns an array of presigned URLs.
 //
 func PresignOne(c *fiber.Ctx) error {
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+
 	// Validate presign method
 	methodStr := strings.ToUpper(c.Params("method"))
 	if methodStr != "PUT" && methodStr != "GET" {
@@ -120,29 +105,19 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get project ID
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
-
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[PresignOne] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -159,12 +134,16 @@ func PresignOne(c *fiber.Ctx) error {
 	var method PresignMethod
 	if methodStr == "PUT" {
 		method = PresignMethodPUT
-	} else {
+	} else if methodStr == "GET" {
 		method = PresignMethodGET
+	} else {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid presign method. Must be \"PUT\" or \"GET\".",
+		})
 	}
 
 	client := s3.NewPresignClient(config.SI.Client)
-	remoteKey := fmt.Sprintf("%s/%s", pid, body.Key)
+	remoteKey := fmt.Sprintf("%s/%s", project.ID.Hex(), body.Key)
 	var uploadId string
 	urls := []string{}
 
@@ -208,7 +187,7 @@ func PresignOne(c *fiber.Ctx) error {
 					ContentLength: currentSize,
 				})
 				if err != nil {
-					fmt.Println(err)
+					fmt.Printf("[PresignOne] Error presigning PUT URL for an upload part: %v\n", err)
 					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 						"error": "Internal server error",
 					})
@@ -228,7 +207,7 @@ func PresignOne(c *fiber.Ctx) error {
 				Key:    &remoteKey,
 			})
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("[PresignOne] Error presigning PUT URL for a single object: %v\n", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
@@ -243,7 +222,7 @@ func PresignOne(c *fiber.Ctx) error {
 			Key:    &remoteKey,
 		})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[PresignOne] Error presigning GET URL for an object: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
@@ -261,29 +240,22 @@ func PresignOne(c *fiber.Ctx) error {
 // Complete an S3 multipart upload.
 // Multipart uploads can be started by generating presigned URLs.
 func CompleteMultipartUpload(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
 
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[CompleteMultipartUpload] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -308,17 +280,16 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Complete multipart upload
-	key := fmt.Sprintf("%s/%s", pid, body.Key)
-	_, err = config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+	key := fmt.Sprintf("%s/%s", project.ID.Hex(), body.Key)
+	if _, err := config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &config.SI.Bucket,
 		Key:      &key,
 		UploadId: &body.UploadId,
 		MultipartUpload: &awstypes.CompletedMultipartUpload{
 			Parts: parts,
 		},
-	})
-	if err != nil {
-		fmt.Println(err)
+	}); err != nil {
+		fmt.Printf("[CompleteMultipartUpload] Error completing multipart upload: %v\n", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Failed to complete multipart upload, please make sure the upload ID and parts are correct.",
 		})
@@ -332,29 +303,22 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 // Abort an S3 multipart upload.
 // Multipart uploads can be started by generating presigned URLs.
 func AbortMultipartUpload(c *fiber.Ctx) error {
-	// Get project ID
-	pid := c.Params("pid")
-	projectObjectId, err := primitive.ObjectIDFromHex(pid)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
 
 	// Get project
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	project := models.Project{}
-	err = config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"_id": projectObjectId}).Decode(&project)
-	if err == mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Project not found",
-		})
-	}
-	if err != nil {
-		fmt.Println(err)
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[AbortMultipartUpload] Error getting project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -369,13 +333,12 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Abort multipart upload
-	_, err = config.SI.Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+	if _, err := config.SI.Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 		Bucket:   &config.SI.Bucket,
 		Key:      &body.Key,
 		UploadId: &body.UploadId,
-	})
-	if err != nil {
-		fmt.Println(err)
+	}); err != nil {
+		fmt.Printf("[AbortMultipartUpload] Error aborting multipart upload: %v\n", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Failed to abort multipart upload, please make sure the upload ID is correct.",
 		})
@@ -388,25 +351,33 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 
 // Delete all unused objects from storage based on commit hash maps.
 func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
-	// Get project ID
-	pidStr := c.Params("pid")
-	pid, err := primitive.ObjectIDFromHex(pidStr)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad request",
-			"message": "Invalid project ID",
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+
+	// Get project
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	var project models.Project
+	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Project not found",
+			})
+		}
+
+		fmt.Printf("[AbortMultipartUpload] Error getting project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
 		})
 	}
 
 	// Get unique file hashes from commit hash maps in database
 	// TODO: Optimize this query
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
 	var fileHashes []string
-	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": pid})
+	cur, err := config.MI.DB.Collection("commits").Find(ctx, bson.M{"project_id": project.ID})
 	if err != nil {
-		fmt.Printf("Error while finding all commits for project with ID \"%s\": %v\n", pidStr, err)
+		fmt.Printf("[DeleteUnusedStorageObjects] Error while finding all commits for project: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -431,14 +402,14 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 	var startAfter *string
 
 	for hasMore {
-		prefix := fmt.Sprintf("%s/", pidStr)
+		prefix := fmt.Sprintf("%s/", project.ID.Hex())
 		res, err := config.SI.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket:     &config.SI.Bucket,
 			Prefix:     &prefix,
 			StartAfter: startAfter,
 		})
 		if err != nil {
-			fmt.Printf("Error listing all objects in storage for project with ID \"%s\": %v\n", pidStr, err)
+			fmt.Printf("[DeleteUnusedStorageObjects] Error listing all objects in storage for project: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})

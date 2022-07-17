@@ -39,15 +39,17 @@ func main() {
 
 	// Define routes
 	routes.RouteAuth(app.Group("/"))
-	routes.RouteProjects(app.Group("/projects"))
-	routes.RouteCommits(app.Group("/projects/:pid/commits"))
-	routes.RouteBranches(app.Group("/projects/:pid/branches"))
-	routes.RouteStorage(app.Group("/projects/:pid/storage"))
-	routes.RouteTeams(app.Group("/teams"))
 	routes.RouteStytch(app.Group("/stytch"))
+	routes.RouteTeams(app.Group("/teams"))
+
+	projectGroup := app.Group("/projects/:team_name/:project_name")
+	routes.RouteProjects(projectGroup)
+	routes.RouteBranches(projectGroup.Group("/branches"))
+	routes.RouteCommits(projectGroup.Group("/commits"))
+	routes.RouteStorage(projectGroup.Group("/storage"))
 
 	// Start server
-	app.Listen(fmt.Sprintf(":%s", config.I.Port))
+	app.Listen(fmt.Sprintf(":%d", config.I.Port))
 
 	// After server stops:
 	// Close database connection

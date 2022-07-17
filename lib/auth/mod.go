@@ -7,7 +7,13 @@ import (
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
 
+// Get user data from user context.
+func GetUserDataFromContext(c *fiber.Ctx) models.UserData {
+	return c.UserContext().Value(models.ContextKeyUser).(models.UserData)
+}
+
 // Returns the user's ID from the session.
+// @deprecated - Use `GetUserFromContext` instead.
 func GetUserID(c *fiber.Ctx) (string, error) {
 	userVal := c.UserContext().Value(models.ContextKeyUser)
 	if userVal == nil {

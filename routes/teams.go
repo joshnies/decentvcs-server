@@ -11,8 +11,9 @@ func RouteTeams(router fiber.Router) {
 	router.Use(middleware.IsAuthenticated)
 
 	router.Get("/", controllers.GetManyTeams)
-	router.Get("/:tid", controllers.GetOneTeam)
 	router.Post("/", controllers.CreateTeam)
-	router.Post("/:tid", middleware.HasTeamAccessWithRole(models.RoleAdmin), controllers.UpdateTeam)
-	router.Delete("/:tid", middleware.HasTeamAccessWithRole(models.RoleOwner), controllers.DeleteTeam)
+	router.Get("/:team_name", controllers.GetOneTeam)
+	router.Put("/:team_name", middleware.HasTeamAccess(models.RoleAdmin), controllers.UpdateTeam)
+	router.Delete("/:team_name", middleware.HasTeamAccess(models.RoleOwner), controllers.DeleteTeam)
+	router.Post("/:team_name/invite", middleware.HasTeamAccess(models.RoleAdmin), controllers.InviteToTeam)
 }
