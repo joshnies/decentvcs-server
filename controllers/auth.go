@@ -29,7 +29,7 @@ func Authenticate(c *fiber.Ctx) error {
 	var userID string
 	var email string
 	var sessionToken string
-	if body.TokenType == "magic_link" {
+	if body.TokenType == "magic_link" || body.TokenType == "magic_links" {
 		// Authenticate magic link token
 		stytchres, err := config.StytchClient.MagicLinks.Authenticate(&stytch.MagicLinksAuthenticateParams{
 			Token:                  body.Token,
@@ -68,6 +68,10 @@ func Authenticate(c *fiber.Ctx) error {
 		}
 
 		email = stytchUserRes.Emails[0].Email
+	} else {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("Invalid token type \"%s\"; must be either `magic_link` or `oauth`", body.TokenType),
+		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
