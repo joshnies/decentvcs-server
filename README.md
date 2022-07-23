@@ -54,9 +54,9 @@ dvcs-server
 | GET    | `/projects/:team_name/:project_name/branches/default`              | Get the default branch of a project              |
 | GET    | `/projects/:team_name/:project_name/branches/:branch_name`         | Get one branch by ID or name for a project       |
 | DELETE | `/projects/:team_name/:project_name/branches/:branch_name`         | Delete one branch by ID or name for a project    |
+| POST   | `/projects/:team_name/:project_name/branches/:branch_name/commit`  | Create one commit                                |
 | GET    | `/projects/:team_name/:project_name/branches/:branch_name/commits` | Get many commits for a branch                    |
 | GET    | `/projects/:team_name/:project_name/commits`                       | Get many commits for a project                   |
-| POST   | `/projects/:team_name/:project_name/branches/:branch_name/commit`  | Create one commit                                |
 | GET    | `/projects/:team_name/:project_name/commits/:commit_index`         | Get one commit for a project                     |
 | PUT    | `/projects/:team_name/:project_name/commits/:commit_index`         | Update one commit for a project                  |
 | GET    | `/projects/:team_name/:project_name/storage/presign/many`          | Presign many objects (`GET` method only)         |
