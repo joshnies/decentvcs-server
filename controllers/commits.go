@@ -345,7 +345,7 @@ func CreateCommit(c *fiber.Ctx) error {
 		}
 
 		// Calculate and add file size, rounded up to the nearest MB
-		team.StorageUsedMB += float64(s3Res.ContentLength) / float64(1000000)
+		team.StorageUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
 	}
 
 	// Update team storage usage in database

@@ -86,6 +86,37 @@ func PresignManyGET(c *fiber.Ctx) error {
 		}
 
 		keyUrlMap[localKey] = res.URL
+
+		// Get object size
+		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: &config.SI.Bucket,
+			Key:    &remoteKey,
+		})
+		if err != nil {
+			fmt.Printf("[PresignOne] Error getting object size: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		// Add object size to team bandwidth usage
+		team.BandwidthUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
+	}
+
+	// Update team bandwidth usage in database
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(
+		ctx,
+		bson.M{"_id": team.ID},
+		bson.M{
+			"$set": bson.M{
+				"bandwidth_used_mb": team.BandwidthUsedMB,
+			},
+		},
+	); err != nil {
+		fmt.Printf("[PresignManyGET] Error updating team bandwidth usage: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
 	}
 
 	return c.JSON(keyUrlMap)
@@ -221,6 +252,8 @@ func PresignOne(c *fiber.Ctx) error {
 		}
 	} else {
 		// GET
+		//
+		// Generate presigned URL
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
 			Bucket: &config.SI.Bucket,
 			Key:    &remoteKey,
@@ -233,6 +266,35 @@ func PresignOne(c *fiber.Ctx) error {
 		}
 
 		urls = append(urls, res.URL)
+
+		// Get object size
+		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: &config.SI.Bucket,
+			Key:    &remoteKey,
+		})
+		if err != nil {
+			fmt.Printf("[PresignOne] Error getting object size: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		// Update team bandwidth usage
+		team.BandwidthUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
+		if _, err = config.MI.DB.Collection("teams").UpdateOne(
+			ctx,
+			bson.M{"_id": team.ID},
+			bson.M{
+				"$set": bson.M{
+					"bandwidth_used_mb": team.BandwidthUsedMB,
+				},
+			},
+		); err != nil {
+			fmt.Printf("[PresignOne] Error updating team bandwidth usage: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
 	}
 
 	return c.JSON(models.PresignOneResponse{
