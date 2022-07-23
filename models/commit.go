@@ -13,9 +13,9 @@ type Commit struct {
 	ProjectID primitive.ObjectID `json:"project_id,omitempty" bson:"project_id,omitempty"`
 	BranchID  primitive.ObjectID `json:"branch_id,omitempty" bson:"branch_id,omitempty"`
 	Message   string             `json:"message,omitempty" bson:"message,omitempty"`
-	// Array of fs paths to created files (uploaded as snapshots)
+	// Array of fs paths to created files
 	CreatedFiles []string `json:"created_files,omitempty" bson:"created_files,omitempty"`
-	// Array of fs paths to modified files (uploaded as snapshots)
+	// Array of fs paths to modified files
 	ModifiedFiles []string `json:"modified_files,omitempty" bson:"modified_files,omitempty"`
 	// Array of fs paths to deleted files
 	DeletedFiles []string `json:"deleted_files,omitempty" bson:"deleted_files,omitempty"`
@@ -32,9 +32,9 @@ type CommitWithBranch struct {
 	ProjectID primitive.ObjectID `json:"project_id,omitempty" bson:"project_id,omitempty"`
 	Branch    Branch             `json:"branch,omitempty" bson:"branch,omitempty"`
 	Message   string             `json:"message,omitempty" bson:"message,omitempty"`
-	// Array of fs paths to created files (uploaded as snapshots)
+	// Array of fs paths to created files
 	CreatedFiles []string `json:"created_files,omitempty" bson:"created_files,omitempty"`
-	// Array of fs paths to modified files (uploaded as snapshots)
+	// Array of fs paths to modified files
 	ModifiedFiles []string `json:"modified_files,omitempty" bson:"modified_files,omitempty"`
 	// Array of fs paths to deleted files
 	DeletedFiles []string `json:"deleted_files,omitempty" bson:"deleted_files,omitempty"`

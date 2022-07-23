@@ -24,6 +24,10 @@ const (
 	PresignMethodGET
 )
 
+func FormatStorageKey(team models.Team, project models.Project, key string) string {
+	return fmt.Sprintf("%s/%s/%s", team.Name, project.Name, key)
+}
+
 // Generate presigned GET URLs for many objects, scoped to a project.
 // These URLs are used by the client to upload files to storage without the need for
 // access keys or ACL.
@@ -69,7 +73,7 @@ func PresignManyGET(c *fiber.Ctx) error {
 	keyUrlMap := make(map[string]string)
 
 	for _, localKey := range body.Keys {
-		remoteKey := fmt.Sprintf("%s/%s", project.ID.Hex(), localKey)
+		remoteKey := FormatStorageKey(*team, project, localKey)
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
 			Bucket: &config.SI.Bucket,
 			Key:    &remoteKey,
@@ -143,7 +147,7 @@ func PresignOne(c *fiber.Ctx) error {
 	}
 
 	client := s3.NewPresignClient(config.SI.Client)
-	remoteKey := fmt.Sprintf("%s/%s", project.ID.Hex(), body.Key)
+	remoteKey := FormatStorageKey(*team, project, body.Key)
 	var uploadId string
 	urls := []string{}
 
@@ -280,7 +284,7 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Complete multipart upload
-	key := fmt.Sprintf("%s/%s", project.ID.Hex(), body.Key)
+	key := FormatStorageKey(*team, project, body.Key)
 	if _, err := config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &config.SI.Bucket,
 		Key:      &key,
@@ -402,7 +406,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 	var startAfter *string
 
 	for hasMore {
-		prefix := fmt.Sprintf("%s/", project.ID.Hex())
+		prefix := fmt.Sprintf("%s/%s/", team.Name, project.Name)
 		res, err := config.SI.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket:     &config.SI.Bucket,
 			Prefix:     &prefix,

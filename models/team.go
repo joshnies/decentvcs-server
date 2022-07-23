@@ -27,10 +27,10 @@ type Team struct {
 	// Unix timestamp of when the billing period started.
 	PeriodStart time.Time `json:"period_start" bson:"period_start"`
 	// Amount of storage used in MB. Accounts for all projects within this team.
-	StorageUsedMB int64 `json:"storage_used_mb" bson:"storage_used_mb"`
+	StorageUsedMB float64 `json:"storage_used_mb" bson:"storage_used_mb"`
 	// Amount of bandwidth used in MB.  Accounts for all projects within this team.
 	// Resets on the first day of a new billing period.
-	BandwidthUsedMB int64 `json:"bandwidth_used_mb" bson:"bandwidth_used_mb"`
+	BandwidthUsedMB float64 `json:"bandwidth_used_mb" bson:"bandwidth_used_mb"`
 }
 
 // Request body for `CreateOneTeam`.
@@ -50,11 +50,11 @@ type UpdateTeamRequest struct {
 	Name string `json:"name" validate:"min=3,max=64"`
 	// Amount of storage used in MB. Accounts for all projects within this team.
 	// Provide -1 to reset to 0.
-	StorageUsedMB int64 `json:"storage_used_mb" validate:"gte=0"`
+	StorageUsedMB float64 `json:"storage_used_mb" validate:"gte=0"`
 	// Amount of bandwidth used in MB.  Accounts for all projects within this team.
 	// Resets on the first day of a new billing period.
 	// Provide -1 to reset to 0.
-	BandwidthUsedMB int64 `json:"bandwidth_used_mb" validate:"gte=0"`
+	BandwidthUsedMB float64 `json:"bandwidth_used_mb" validate:"gte=0"`
 }
 
 // Request body for `UpdateOneTeamPlan`.

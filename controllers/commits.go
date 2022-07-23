@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/lib/auth"
@@ -226,7 +227,7 @@ func GetOneCommit(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
-// Create a new commit.
+// Create a new commit and update team usage metrics for billing purposes.
 func CreateCommit(c *fiber.Ctx) error {
 	userData := auth.GetUserDataFromContext(c)
 	team := team_lib.GetTeamFromContext(c)
@@ -315,6 +316,41 @@ func CreateCommit(c *fiber.Ctx) error {
 	// Update branch to point to new commit
 	if _, err = config.MI.DB.Collection("branches").UpdateOne(ctx, bson.M{"_id": branch.ID}, bson.M{"$set": bson.M{"commit_id": commit.ID}}); err != nil {
 		fmt.Printf("[CreateCommit] Failed to update branch: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Get file sizes from storage
+	var storedFiles []string
+	storedFiles = append(storedFiles, reqBody.CreatedFiles...)
+	storedFiles = append(storedFiles, reqBody.ModifiedFiles...)
+
+	for _, path := range storedFiles {
+		hash := commit.HashMap[path]
+
+		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		storageKey := FormatStorageKey(*team, project, hash)
+		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: &config.SI.Bucket,
+			Key:    &storageKey,
+		})
+		if err != nil {
+			fmt.Printf("[CreateCommit] Error getting file size of object \"%s\": %v\n", storageKey, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		// Calculate and add file size, rounded up to the nearest MB
+		team.StorageUsedMB += float64(s3Res.ContentLength) / float64(1000000)
+	}
+
+	// Update team storage usage in database
+	if _, err = config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": bson.M{"storage_used_mb": team.StorageUsedMB}}); err != nil {
+		fmt.Printf("[CreateCommit] Failed to update team: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
