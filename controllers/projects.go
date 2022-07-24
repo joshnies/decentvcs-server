@@ -243,3 +243,66 @@ func DeleteOneProject(c *fiber.Ctx) error {
 		"message": "Project deleted successfully",
 	})
 }
+
+// Transfer a project to another team.
+func TransferProjectOwnership(c *fiber.Ctx) error {
+	team := team_lib.GetTeamFromContext(c)
+	projectName := c.Params("project_name")
+
+	// Parse request body
+	var body models.TransferProjectOwnershipRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Bad request",
+		})
+	}
+
+	// Get project
+	project := models.Project{}
+	err := config.MI.DB.Collection("projects").FindOne(context.Background(), bson.M{"team_id": team.ID, "name": projectName}).Decode(&project)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Project not found",
+		})
+	}
+	if err != nil {
+		fmt.Printf("[TransferProjectOwnership] Error getting project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Get new team
+	newTeam := models.Team{}
+	err = config.MI.DB.Collection("teams").FindOne(context.Background(), bson.M{"name": body.NewTeamName}).Decode(&newTeam)
+	if err == mongo.ErrNoDocuments {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Team not found",
+		})
+	}
+	if err != nil {
+		fmt.Printf("[TransferProjectOwnership] Error getting team: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Update project
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if _, err = config.MI.DB.Collection("projects").UpdateOne(
+		ctx,
+		bson.M{"_id": project.ID},
+		bson.M{"$set": bson.M{"team_id": newTeam.ID}},
+	); err != nil {
+		fmt.Printf("[TransferProjectOwnership] Error updating project: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Project transferred successfully",
+	})
+}

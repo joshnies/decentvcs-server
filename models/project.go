@@ -24,3 +24,7 @@ type UpdateProjectRequest struct {
 type InviteManyUsersDTO struct {
 	Emails []string `json:"emails"`
 }
+
+type TransferProjectOwnershipRequest struct {
+	NewTeamName string `json:"new_team_name"`
+}
