@@ -8,7 +8,7 @@ import (
 )
 
 func RouteProjects(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated)
+	router.Use(middleware.IsAuthenticated, middleware.IncludeUserData)
 
 	router.Post("/", middleware.HasTeamAccess(models.RoleNone), controllers.CreateProject)
 	router.Get("/", middleware.HasTeamAccess(models.RoleNone), controllers.GetOneProject)

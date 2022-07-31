@@ -14,13 +14,13 @@ func GetStytchUserFromContext(c *fiber.Ctx) stytch.User {
 
 // Get user data from user context.
 func GetUserDataFromContext(c *fiber.Ctx) models.UserData {
-	return c.UserContext().Value(models.ContextKeyUser).(models.UserData)
+	return c.UserContext().Value(models.ContextKeyUserData).(models.UserData)
 }
 
 // Returns the user's ID from the session.
 // @deprecated - Use `GetUserFromContext` instead.
 func GetUserID(c *fiber.Ctx) (string, error) {
-	userVal := c.UserContext().Value(models.ContextKeyUser)
+	userVal := c.UserContext().Value(models.ContextKeyUserData)
 	if userVal == nil {
 		return "", fiber.ErrUnauthorized
 	}

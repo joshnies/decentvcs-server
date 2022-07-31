@@ -4,6 +4,6 @@ type ContextKey string
 
 const (
 	ContextKeyStytchUser ContextKey = "stytch_user"
-	ContextKeyUser       ContextKey = "user"
+	ContextKeyUserData   ContextKey = "user_data"
 	ContextKeyTeam       ContextKey = "team"
 )
