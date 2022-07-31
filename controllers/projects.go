@@ -57,8 +57,6 @@ func GetManyProjects(c *fiber.Ctx) error {
 	defer cancel()
 
 	options := options.Find().SetSort(bson.M{"name": 1})
-
-	var result []models.Project
 	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{"team_id": team.ID}, options)
 	if err != nil {
 		fmt.Println(err)
@@ -67,7 +65,12 @@ func GetManyProjects(c *fiber.Ctx) error {
 		})
 	}
 
+	var result []models.Project
 	cur.All(ctx, &result)
+	if result == nil {
+		result = []models.Project{}
+	}
+
 	return c.JSON(result)
 }
 

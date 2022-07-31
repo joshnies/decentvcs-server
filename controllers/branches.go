@@ -78,17 +78,10 @@ func GetManyBranches(c *fiber.Ctx) error {
 
 	// Iterate over the results and decode into slice of Branches
 	var result []models.BranchWithCommit
-	for cur.Next(ctx) {
-		var decoded models.BranchWithCommit
-		err := cur.Decode(&decoded)
-		if err != nil {
-			fmt.Printf("[GetManyBranches] Error decoding branches: %v\n", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
 
-		result = append(result, decoded)
+	cur.All(ctx, &result)
+	if result == nil {
+		result = []models.BranchWithCommit{}
 	}
 
 	return c.JSON(result)
