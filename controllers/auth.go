@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joshnies/decent-vcs/config"
 	"github.com/joshnies/decent-vcs/constants"
+	"github.com/joshnies/decent-vcs/lib/auth"
 	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
@@ -17,19 +18,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Authenticate Stytch session token.
-// If `SessionToken` is provided, the existing session will be refreshed instead of creating a new one.
-func Authenticate(c *fiber.Ctx) error {
+// Create or refresh a Stytch session.
+// This is usually only needed to refresh an existing session, since the website handles all auth flows.
+//
+// To refresh an existing session, provide `SessionToken`.
+func CreateOrRefreshSession(c *fiber.Ctx) error {
 	// Validate request body
 	var body models.AuthenticateRequest
 	if err := c.BodyParser(&body); err != nil {
 		return err
 	}
 
-	var userID string
-	var email string
 	var sessionToken string
-	if body.TokenType == "magic_link" || body.TokenType == "magic_links" {
+	if body.TokenType == "magic_links" {
 		// Authenticate magic link token
 		stytchres, err := config.StytchClient.MagicLinks.Authenticate(&stytch.MagicLinksAuthenticateParams{
 			Token:                  body.Token,
@@ -43,8 +44,6 @@ func Authenticate(c *fiber.Ctx) error {
 			return err
 		}
 
-		userID = stytchres.UserID
-		email = stytchres.User.Emails[0].Email
 		sessionToken = stytchres.SessionToken
 	} else if body.TokenType == "oauth" {
 		// Authenticate OAuth token
@@ -57,61 +56,11 @@ func Authenticate(c *fiber.Ctx) error {
 			return err
 		}
 
-		userID = stytchres.UserID
 		sessionToken = stytchres.SessionToken
-
-		// Get user email from Stytch
-		// This is required since Stytch doesn't return the user's email after oauth
-		stytchUserRes, err := config.StytchClient.Users.Get(stytchres.UserID)
-		if err != nil {
-			return err
-		}
-
-		email = stytchUserRes.Emails[0].Email
 	} else {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fmt.Sprintf("Invalid token type \"%s\"; must be either `magic_link` or `oauth`", body.TokenType),
 		})
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get or create user data from database.
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			// Create user data
-			userData = models.UserData{
-				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now(),
-				UserID:    userID,
-				Roles:     []models.RoleObject{},
-			}
-			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
-				fmt.Printf("Error creating user data while authenticating user with ID \"%s\": %v\n", userID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-		} else {
-			fmt.Printf("Error fetching user data while authenticating user with ID \"%s\": %v\n", userID, err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-	}
-
-	// Create the user's default team if it doesn't exist.
-	if userData.DefaultTeamID.IsZero() {
-		// Create new default team
-		_, err := team_lib.CreateDefault(userID, email)
-		if err != nil {
-			fmt.Printf("Error creating default team during authentication: %v\n", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
 	}
 
 	// Return response
@@ -131,4 +80,53 @@ func RevokeSession(c *fiber.Ctx) error {
 	})
 
 	return err
+}
+
+// Initialize all required resources for a user.
+// If already initialized, nothing happens and no error is returned.
+func Init(c *fiber.Ctx) error {
+	stytchUser := auth.GetStytchUserFromContext(c)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// Get or create user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Create user data
+			userData = models.UserData{
+				ID:        primitive.NewObjectID(),
+				CreatedAt: time.Now(),
+				UserID:    stytchUser.UserID,
+				Roles:     []models.RoleObject{},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("Error creating user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			fmt.Printf("Error fetching user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// Get or create default team
+	if userData.DefaultTeamID.IsZero() {
+		_, err := team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
+		if err != nil {
+			fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+	})
 }

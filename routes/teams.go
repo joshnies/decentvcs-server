@@ -8,7 +8,7 @@ import (
 )
 
 func RouteTeams(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated)
+	router.Use(middleware.IsAuthenticated, middleware.IncludeUserData)
 
 	router.Get("/", controllers.GetManyTeams)
 	router.Post("/", controllers.CreateTeam)

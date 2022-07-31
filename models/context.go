@@ -3,6 +3,7 @@ package models
 type ContextKey string
 
 const (
-	ContextKeyUser ContextKey = "user"
-	ContextKeyTeam ContextKey = "team"
+	ContextKeyStytchUser ContextKey = "stytch_user"
+	ContextKeyUserData   ContextKey = "user_data"
+	ContextKeyTeam       ContextKey = "team"
 )
