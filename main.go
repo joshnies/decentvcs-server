@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// Define routes
-	routes.RouteAuth(app.Group("/"))
+	routes.RouteRoot(app.Group("/"))
 	routes.RouteStytch(app.Group("/stytch"))
 	routes.RouteTeams(app.Group("/teams"))
 

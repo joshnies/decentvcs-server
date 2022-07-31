@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Get one project by ID.
@@ -41,6 +42,32 @@ func GetOneProject(c *fiber.Ctx) error {
 		})
 	}
 
+	return c.JSON(result)
+}
+
+// Get many projects for a team.
+func GetManyProjects(c *fiber.Ctx) error {
+	// Get team from context
+	team := team_lib.GetTeamFromContext(c)
+
+	// TODO: Add pagination
+
+	// Get projects from database
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	options := options.Find().SetSort(bson.M{"name": 1})
+
+	var result []models.Project
+	cur, err := config.MI.DB.Collection("projects").Find(ctx, bson.M{"team_id": team.ID}, options)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	cur.All(ctx, &result)
 	return c.JSON(result)
 }
 
