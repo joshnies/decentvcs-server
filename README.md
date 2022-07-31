@@ -68,7 +68,7 @@ Body:
 | POST   | `/session`                                                         | Create or refresh session                        |
 | DELETE | `/session`                                                         | Revoke session (remote logout)                   |
 | POST   | `/init`                                                            | Initialize all required resources for a user     |
-| POST   | `/projects`                                                        | Create one project                               |
+| POST   | `/projects/:team_name/:project_name`                               | Create one project                               |
 | GET    | `/projects/:team_name/:project_name`                               | Get one project                                  |
 | PUT    | `/projects/:team_name/:project_name`                               | Update one project by ID                         |
 | GET    | `/projects/:team_name/:project_name/branches`                      | Get many branches for a project                  |
@@ -90,4 +90,5 @@ Body:
 | GET    | `/teams/:team_name`                                                | Get one team                                     |
 | PUT    | `/teams/:team_name`                                                | Update one team                                  |
 | DELETE | `/teams/:team_name`                                                | Delete one team                                  |
+| GET    | `/teams/:team_name/projects`                                       | Get many projects                                |
 | GET    | `/users/:user_id`                                                  | Get one Stytch user                              |
