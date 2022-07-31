@@ -65,6 +65,9 @@ Body:
 
 | Method | Path                                                               | Description                                      |
 | ------ | ------------------------------------------------------------------ | ------------------------------------------------ |
+| POST   | `/session`                                                         | Create or refresh session                        |
+| DELETE | `/session`                                                         | Revoke session (remote logout)                   |
+| POST   | `/init`                                                            | Initialize all required resources for a user     |
 | POST   | `/projects`                                                        | Create one project                               |
 | GET    | `/projects/:team_name/:project_name`                               | Get one project                                  |
 | PUT    | `/projects/:team_name/:project_name`                               | Update one project by ID                         |
