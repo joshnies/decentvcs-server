@@ -42,7 +42,26 @@ It should be added to your path automatically. You can then run the built execut
 dvcs-server
 ```
 
-## REST API Routes
+## Using the REST API
+
+### Authentication
+
+We use Stytch for session-based authentication. Once the user goes through one of Stytch's auth flows, you'll receive
+a session token that can be sent with any request to the VCS server as the `X-Session-Token` header.
+
+Example request:
+
+```
+POST /projects/myteam/myproject
+X-Session-Token: ****1234
+Content-Type: application/json
+Body:
+{
+    "hello": "world"
+}
+```
+
+### Routes
 
 | Method | Path                                                               | Description                                      |
 | ------ | ------------------------------------------------------------------ | ------------------------------------------------ |
