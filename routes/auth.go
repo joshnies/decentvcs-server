@@ -7,6 +7,7 @@ import (
 )
 
 func RouteAuth(router fiber.Router) {
-	router.Post("/authenticate", controllers.Authenticate)
+	router.Post("/session", controllers.CreateOrRefreshSession)
 	router.Delete("/session", middleware.IsAuthenticated, controllers.RevokeSession)
+	router.Post("/init", middleware.IsAuthenticated, controllers.Init)
 }
