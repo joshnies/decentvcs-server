@@ -40,6 +40,7 @@ func main() {
 	// Define routes
 	routes.RouteRoot(app.Group("/"))
 	routes.RouteStytch(app.Group("/stytch"))
+	routes.RouteUserData(app.Group("/users"))
 	routes.RouteTeams(app.Group("/teams"))
 
 	projectGroup := app.Group("/projects/:team_name/:project_name")

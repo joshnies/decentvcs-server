@@ -14,7 +14,10 @@ import (
 
 type StorageInstance struct {
 	Client *s3.Client
-	Bucket string
+	// Bucket for storing project files
+	ProjectsBucket string
+	// Bucket for storing media
+	MediaBucket string
 	// Size of multipart upload parts in bytes
 	MultipartUploadPartSize int64
 }
@@ -59,9 +62,14 @@ func InitStorage() {
 		panic("AWS_REGION is not set")
 	}
 
-	bucket := os.Getenv("AWS_S3_BUCKET")
-	if bucket == "" {
-		panic("AWS_S3_BUCKET is not set")
+	projectsBucket := os.Getenv("AWS_S3_BUCKET_PROJECTS")
+	if projectsBucket == "" {
+		panic("AWS_S3_BUCKET_PROJECTS is not set")
+	}
+
+	mediaBucket := os.Getenv("AWS_S3_BUCKET_MEDIA")
+	if mediaBucket == "" {
+		panic("AWS_S3_BUCKET_MEDIA is not set")
 	}
 
 	s3Endpoint := os.Getenv("AWS_S3_ENDPOINT")
@@ -104,7 +112,8 @@ func InitStorage() {
 	// Create global storage instance
 	SI = StorageInstance{
 		Client:                  client,
-		Bucket:                  bucket,
+		ProjectsBucket:          projectsBucket,
+		MediaBucket:             mediaBucket,
 		MultipartUploadPartSize: getMultipartUploadPartSize(),
 	}
 }

@@ -334,7 +334,7 @@ func CreateCommit(c *fiber.Ctx) error {
 
 		storageKey := FormatStorageKey(*team, project, hash)
 		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.Bucket,
+			Bucket: &config.SI.ProjectsBucket,
 			Key:    &storageKey,
 		})
 		if err != nil {
