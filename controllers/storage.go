@@ -75,7 +75,7 @@ func PresignManyGET(c *fiber.Ctx) error {
 	for _, localKey := range body.Keys {
 		remoteKey := FormatStorageKey(*team, project, localKey)
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
-			Bucket: &config.SI.Bucket,
+			Bucket: &config.SI.ProjectsBucket,
 			Key:    &remoteKey,
 		})
 		if err != nil {
@@ -89,7 +89,7 @@ func PresignManyGET(c *fiber.Ctx) error {
 
 		// Get object size
 		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.Bucket,
+			Bucket: &config.SI.ProjectsBucket,
 			Key:    &remoteKey,
 		})
 		if err != nil {
@@ -189,7 +189,7 @@ func PresignOne(c *fiber.Ctx) error {
 			contentType := body.ContentType
 			expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
 			multipartRes, err := config.SI.Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-				Bucket:      &config.SI.Bucket,
+				Bucket:      &config.SI.ProjectsBucket,
 				Key:         &remoteKey,
 				ContentType: &contentType,
 				Expires:     &expiresAt,
@@ -215,7 +215,7 @@ func PresignOne(c *fiber.Ctx) error {
 
 				// Generate presigned URL
 				res, err := client.PresignUploadPart(ctx, &s3.UploadPartInput{
-					Bucket:        &config.SI.Bucket,
+					Bucket:        &config.SI.ProjectsBucket,
 					Key:           &remoteKey,
 					UploadId:      multipartRes.UploadId,
 					PartNumber:    partNum,
@@ -238,7 +238,7 @@ func PresignOne(c *fiber.Ctx) error {
 		} else {
 			// Single upload
 			res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
-				Bucket: &config.SI.Bucket,
+				Bucket: &config.SI.ProjectsBucket,
 				Key:    &remoteKey,
 			})
 			if err != nil {
@@ -255,7 +255,7 @@ func PresignOne(c *fiber.Ctx) error {
 		//
 		// Generate presigned URL
 		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
-			Bucket: &config.SI.Bucket,
+			Bucket: &config.SI.ProjectsBucket,
 			Key:    &remoteKey,
 		})
 		if err != nil {
@@ -269,7 +269,7 @@ func PresignOne(c *fiber.Ctx) error {
 
 		// Get object size
 		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.Bucket,
+			Bucket: &config.SI.ProjectsBucket,
 			Key:    &remoteKey,
 		})
 		if err != nil {
@@ -348,7 +348,7 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	// Complete multipart upload
 	key := FormatStorageKey(*team, project, body.Key)
 	if _, err := config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
-		Bucket:   &config.SI.Bucket,
+		Bucket:   &config.SI.ProjectsBucket,
 		Key:      &key,
 		UploadId: &body.UploadId,
 		MultipartUpload: &awstypes.CompletedMultipartUpload{
@@ -400,7 +400,7 @@ func AbortMultipartUpload(c *fiber.Ctx) error {
 
 	// Abort multipart upload
 	if _, err := config.SI.Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
-		Bucket:   &config.SI.Bucket,
+		Bucket:   &config.SI.ProjectsBucket,
 		Key:      &body.Key,
 		UploadId: &body.UploadId,
 	}); err != nil {
@@ -470,7 +470,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 	for hasMore {
 		prefix := fmt.Sprintf("%s/%s/", team.Name, project.Name)
 		res, err := config.SI.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-			Bucket:     &config.SI.Bucket,
+			Bucket:     &config.SI.ProjectsBucket,
 			Prefix:     &prefix,
 			StartAfter: startAfter,
 		})
@@ -488,7 +488,7 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 				// Object in storage no longer exists in any commit's hash map in the database
 				// Delete it
 				_, err := config.SI.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-					Bucket: &config.SI.Bucket,
+					Bucket: &config.SI.ProjectsBucket,
 					Key:    metadata.Key,
 				})
 				if err != nil {
