@@ -6,7 +6,7 @@ Core server for DecentVCS, the simple, affordable, and decentralized version con
 
 | Dependency | Version |
 | ---------- | ------- |
-| `go`       | 1.18+   |
+| `go`       | 1.19+   |
 
 ## Environment
 
@@ -91,4 +91,5 @@ Body:
 | PUT    | `/teams/:team_name`                                                | Update one team                                  |
 | DELETE | `/teams/:team_name`                                                | Delete one team                                  |
 | GET    | `/teams/:team_name/projects`                                       | Get many projects                                |
-| GET    | `/users/:user_id`                                                  | Get one Stytch user                              |
+| GET    | `/users/me`                                                        | Get own user data                                |
+| PUT    | `/users/me`                                                        | Update own user data                             |

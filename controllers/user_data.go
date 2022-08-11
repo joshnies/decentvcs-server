@@ -11,6 +11,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+// Get user data for a single user.
+func GetUserData(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusOK).JSON(auth.GetUserDataFromContext(c))
+}
+
 // Update user data.
 func UpdateUserData(c *fiber.Ctx) error {
 	userData := auth.GetUserDataFromContext(c)
