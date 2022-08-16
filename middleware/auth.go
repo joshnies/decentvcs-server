@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,9 +11,12 @@ import (
 	"github.com/joshnies/decent-vcs/constants"
 	"github.com/joshnies/decent-vcs/lib/acl"
 	"github.com/joshnies/decent-vcs/lib/auth"
+	"github.com/joshnies/decent-vcs/lib/team_lib"
 	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Middleware that validates the Stytch session.
@@ -80,10 +84,36 @@ func IncludeUserData(c *fiber.Ctx) error {
 	// Get user data
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
-		fmt.Printf("[middleware.IncludeUserData] Error getting user data: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
-			"error": "Internal server error",
-		})
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// User data doesn't exist, so create it
+			userData = models.UserData{
+				ID:        primitive.NewObjectID(),
+				CreatedAt: time.Now(),
+				UserID:    stytchUser.UserID,
+				Roles:     []models.RoleObject{},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("[middleware.IncludeUserData] Error creating user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create default team
+			_, err := team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
+			if err != nil {
+				fmt.Printf("[middleware.IncludeUserData] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			// Unhandled error occurred
+			fmt.Printf("[middleware.IncludeUserData] Error getting user data: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+				"error": "Internal server error",
+			})
+		}
 	}
 
 	// Add user data to context for later use
