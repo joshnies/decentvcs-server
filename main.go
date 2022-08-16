@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/joshnies/decent-vcs/config"
+	"github.com/joshnies/decent-vcs/constants"
 	"github.com/joshnies/decent-vcs/routes"
 )
 
@@ -32,6 +34,12 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName: "DecentVCS Server v0.1.0",
 	})
+
+	// Configure global middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: fmt.Sprintf("Origin, Content-Type, Accept, %s", constants.SessionTokenHeader),
+	}))
 
 	if config.I.Debug {
 		app.Use(logger.New())
