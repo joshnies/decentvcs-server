@@ -8,7 +8,7 @@ import (
 )
 
 func RouteBranches(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated, middleware.IncludeUserData, middleware.HasTeamAccess(models.RoleNone))
+	router.Use(middleware.IsAuthenticated, middleware.HasTeamAccess(models.RoleNone))
 
 	router.Get("/", controllers.GetManyBranches)
 	router.Post("/", controllers.CreateBranch)

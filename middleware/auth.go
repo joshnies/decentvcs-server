@@ -38,18 +38,67 @@ func IsAuthenticated(c *fiber.Ctx) error {
 		})
 	}
 
-	// Add Stytch user to context for later use
-	userCtx := context.WithValue(c.UserContext(), models.ContextKeyStytchUser, res.User)
-	c.SetUserContext(userCtx)
+	stytchUser := res.User
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// Get or create user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// User data doesn't exist, so create it
+			userData = models.UserData{
+				ID:        primitive.NewObjectID(),
+				CreatedAt: time.Now(),
+				UserID:    stytchUser.UserID,
+				Roles:     []models.RoleObject{},
+			}
+			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+				fmt.Printf("[middleware.IsAuthenticated] Error creating user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create default team
+			_, err := team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
+			if err != nil {
+				fmt.Printf("[middleware.IsAuthenticated] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+		} else {
+			// Unhandled error occurred
+			fmt.Printf("[middleware.IsAuthenticated] Error getting user data: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// Add data to context for later use
+	newUserCtx := context.WithValue(c.UserContext(), models.ContextKeyStytchUser, stytchUser)
+	newUserCtx = context.WithValue(newUserCtx, models.ContextKeyUserData, userData)
+	c.SetUserContext(newUserCtx)
 
 	return c.Next()
 }
 
 // Fiber middleware that ensures the user has access to the requested team.
 // If `minRole` is nil, any role is allowed.
+//
+// Assumes that `IsAuthenticated` was included as middleware BEFORE this one.
 func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		userData := auth.GetUserDataFromContext(c)
+		if userData == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+				"error": "Unauthorized",
+			})
+		}
+
 		teamName := c.Params("team_name")
 
 		// Check if user has access to team
@@ -72,53 +121,4 @@ func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 
 		return c.Next()
 	}
-}
-
-// Middleware that adds user data to context.
-func IncludeUserData(c *fiber.Ctx) error {
-	stytchUser := auth.GetStytchUserFromContext(c)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			// User data doesn't exist, so create it
-			userData = models.UserData{
-				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now(),
-				UserID:    stytchUser.UserID,
-				Roles:     []models.RoleObject{},
-			}
-			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
-				fmt.Printf("[middleware.IncludeUserData] Error creating user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			// Create default team
-			_, err := team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
-			if err != nil {
-				fmt.Printf("[middleware.IncludeUserData] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-		} else {
-			// Unhandled error occurred
-			fmt.Printf("[middleware.IncludeUserData] Error getting user data: %v\n", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
-				"error": "Internal server error",
-			})
-		}
-	}
-
-	// Add user data to context for later use
-	userDataCtx := context.WithValue(c.UserContext(), models.ContextKeyUserData, userData)
-	c.SetUserContext(userDataCtx)
-
-	return c.Next()
 }

@@ -8,13 +8,25 @@ import (
 )
 
 // Get Stytch user from user context.
-func GetStytchUserFromContext(c *fiber.Ctx) stytch.User {
-	return c.UserContext().Value(models.ContextKeyStytchUser).(stytch.User)
+func GetStytchUserFromContext(c *fiber.Ctx) *stytch.User {
+	val := c.UserContext().Value(models.ContextKeyStytchUser)
+	if val == nil {
+		return nil
+	}
+
+	stytchUser := val.(stytch.User)
+	return &stytchUser
 }
 
 // Get user data from user context.
-func GetUserDataFromContext(c *fiber.Ctx) models.UserData {
-	return c.UserContext().Value(models.ContextKeyUserData).(models.UserData)
+func GetUserDataFromContext(c *fiber.Ctx) *models.UserData {
+	val := c.UserContext().Value(models.ContextKeyUserData)
+	if val == nil {
+		return nil
+	}
+
+	userData := val.(models.UserData)
+	return &userData
 }
 
 // Returns the user's ID from the session.

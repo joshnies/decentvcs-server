@@ -7,7 +7,7 @@ import (
 )
 
 func RouteUserData(router fiber.Router) {
-	router.Use(middleware.IsAuthenticated, middleware.IncludeUserData)
+	router.Use(middleware.IsAuthenticated)
 
 	router.Get("/me", controllers.GetUserData)
 	router.Put("/me", controllers.UpdateUserData)

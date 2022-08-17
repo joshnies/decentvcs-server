@@ -13,7 +13,11 @@ import (
 )
 
 // Returns true if user has access to the given team (with any role).
-func HasTeamAccess(userData models.UserData, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
+func HasTeamAccess(userData *models.UserData, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
+	if userData == nil {
+		return models.HasTeamAccessResponse{HasAccess: false}, nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
