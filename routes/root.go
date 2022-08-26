@@ -8,7 +8,7 @@ import (
 )
 
 func RouteRoot(router fiber.Router) {
-	router.Get("/health", controllers.HealthCheck)
+	router.Get("/health", controllers.Ping)
 	router.Post("/session", controllers.CreateOrRefreshSession)
 	router.Delete("/session", middleware.IsAuthenticated, controllers.RevokeSession)
 	router.Post("/:team_name/invite", middleware.IsAuthenticated, middleware.HasTeamAccess(models.RoleAdmin), controllers.InviteToTeam)
