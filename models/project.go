@@ -14,15 +14,15 @@ type Project struct {
 	// ID of the team that owns the project.
 	TeamID          primitive.ObjectID `json:"team_id,omitempty" bson:"team_id,omitempty"`
 	DefaultBranchID primitive.ObjectID `json:"default_branch_id,omitempty" bson:"default_branch_id,omitempty"`
-	// URL of the backdrop image.
-	BackdropURL string `json:"backdrop_url,omitempty" bson:"backdrop_url,omitempty"`
+	// URL of the thumbnail image.
+	ThumbnailURL string `json:"thumbnail_url,omitempty" bson:"thumbnail_url,omitempty"`
 }
 
 type UpdateProjectRequest struct {
 	Name            string `json:"name"`
 	DefaultBranchID string `json:"default_branch_id"`
-	// URL of the backdrop image.
-	BackdropURL string `json:"backdrop_url,omitempty" bson:"backdrop_url,omitempty"`
+	// URL of the thumbnail image.
+	ThumbnailURL string `json:"thumbnail_url,omitempty"`
 }
 
 type InviteManyUsersDTO struct {

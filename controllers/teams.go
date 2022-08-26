@@ -200,9 +200,6 @@ func UpdateTeam(c *fiber.Ctx) error {
 			updateData["bandwidth_used_mb"] = reqBody.BandwidthUsedMB
 		}
 	}
-	if reqBody.BackdropURL != "" {
-		updateData["backdrop_url"] = reqBody.BackdropURL
-	}
 
 	// Update team
 	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": updateData}); err != nil {
@@ -468,7 +465,7 @@ func DeleteTeamBackdrop(c *fiber.Ctx) error {
 	}
 
 	// Attempt to delete backdrop from storage
-	key := fmt.Sprintf("%s/%s", team.Name, team.BackdropURL)
+	key := fmt.Sprintf("%s/%s", team.Name, team.AvatarURL)
 	if _, err := config.SI.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &config.SI.MediaBucket,
 		Key:    &key,
@@ -476,6 +473,6 @@ func DeleteTeamBackdrop(c *fiber.Ctx) error {
 		fmt.Printf("[RemoveTeamBackdrop] Error deleting backdrop from storage: %v\n", err)
 	}
 
-	team.BackdropURL = ""
+	team.AvatarURL = ""
 	return c.JSON(team)
 }
