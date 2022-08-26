@@ -1,10 +1,10 @@
 package routes
 
 import (
+	"github.com/decentvcs/server/controllers"
+	"github.com/decentvcs/server/middleware"
+	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/controllers"
-	"github.com/joshnies/decent-vcs/middleware"
-	"github.com/joshnies/decent-vcs/models"
 )
 
 func RouteBranches(router fiber.Router) {

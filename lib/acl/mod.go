@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/models"
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

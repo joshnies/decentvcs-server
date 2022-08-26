@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"github.com/decentvcs/server/lib/auth"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/lib/auth"
 )
 
 // Get one user from Stytch.

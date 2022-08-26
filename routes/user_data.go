@@ -1,9 +1,9 @@
 package routes
 
 import (
+	"github.com/decentvcs/server/controllers"
+	"github.com/decentvcs/server/middleware"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/controllers"
-	"github.com/joshnies/decent-vcs/middleware"
 )
 
 func RouteUserData(router fiber.Router) {

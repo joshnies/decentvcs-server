@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/constants"
+	"github.com/decentvcs/server/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/constants"
-	"github.com/joshnies/decent-vcs/routes"
 )
 
 func main() {

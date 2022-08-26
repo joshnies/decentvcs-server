@@ -8,10 +8,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/lib/team_lib"
+	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/lib/team_lib"
-	"github.com/joshnies/decent-vcs/models"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -35,7 +35,6 @@ func FormatStorageKey(team models.Team, project models.Project, key string) stri
 // Use `PresignOne` with the `PUT` method argument if you need to create PUT URLs.
 //
 // Returns an array of presigned URLs.
-//
 func PresignManyGET(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")
@@ -127,7 +126,6 @@ func PresignManyGET(c *fiber.Ctx) error {
 // access keys or ACL.
 //
 // Returns an array of presigned URLs.
-//
 func PresignOne(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")

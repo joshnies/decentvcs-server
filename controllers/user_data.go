@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/lib/auth"
+	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/lib/auth"
-	"github.com/joshnies/decent-vcs/models"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

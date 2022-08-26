@@ -3,10 +3,10 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/constants"
+	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/constants"
-	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
 

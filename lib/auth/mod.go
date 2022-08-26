@@ -1,9 +1,9 @@
 package auth
 
 import (
+	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/config"
-	"github.com/joshnies/decent-vcs/models"
 	"github.com/stytchauth/stytch-go/v5/stytch"
 )
 

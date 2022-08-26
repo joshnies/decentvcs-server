@@ -1,4 +1,4 @@
-module github.com/joshnies/decent-vcs
+module github.com/decentvcs/server
 
 go 1.19
 

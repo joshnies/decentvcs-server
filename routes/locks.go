@@ -1,8 +1,8 @@
 package routes
 
 import (
+	"github.com/decentvcs/server/controllers"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joshnies/decent-vcs/controllers"
 )
 
 func RouteLocks(router fiber.Router) {
