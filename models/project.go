@@ -16,6 +16,9 @@ type Project struct {
 	DefaultBranchID primitive.ObjectID `json:"default_branch_id,omitempty" bson:"default_branch_id,omitempty"`
 	// URL of the thumbnail image.
 	ThumbnailURL string `json:"thumbnail_url,omitempty" bson:"thumbnail_url,omitempty"`
+	// If `true`, modified committed files in this project will be uploaded as patches instead of snapshots (e.g. the
+	// whole file).
+	EnablePatchRevisions bool `json:"enable_patch_revisions,omitempty" bson:"enable_patch_revisions,omitempty"`
 }
 
 type UpdateProjectRequest struct {
@@ -23,6 +26,9 @@ type UpdateProjectRequest struct {
 	DefaultBranchID string `json:"default_branch_id"`
 	// URL of the thumbnail image.
 	ThumbnailURL string `json:"thumbnail_url,omitempty"`
+	// If `true`, modified committed files in this project will be uploaded as patches instead of snapshots (e.g. the
+	// whole file).
+	// EnablePatchRevisions bool `json:"enable_patch_revisions,omitempty"`
 }
 
 type InviteManyUsersDTO struct {
