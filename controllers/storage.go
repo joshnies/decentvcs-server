@@ -456,7 +456,8 @@ func DeleteUnusedStorageObjects(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
-		fileHashes = append(fileHashes, lo.Values(commit.HashMap)...)
+		newFileHashes := lo.Map(lo.Values(commit.Files), func(f models.FileData, _ int) string { return f.Hash })
+		fileHashes = append(fileHashes, newFileHashes...)
 		fileHashes = lo.Uniq(fileHashes)
 	}
 	cur.Close(ctx)

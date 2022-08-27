@@ -301,7 +301,7 @@ func CreateCommit(c *fiber.Ctx) error {
 		CreatedFiles:  reqBody.CreatedFiles,
 		ModifiedFiles: reqBody.ModifiedFiles,
 		DeletedFiles:  reqBody.DeletedFiles,
-		HashMap:       reqBody.HashMap,
+		Files:         reqBody.Files,
 		AuthorID:      userData.UserID,
 	}
 
@@ -327,7 +327,7 @@ func CreateCommit(c *fiber.Ctx) error {
 	storedFiles = append(storedFiles, reqBody.ModifiedFiles...)
 
 	for _, path := range storedFiles {
-		hash := commit.HashMap[path]
+		hash := commit.Files[path].Hash
 
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()

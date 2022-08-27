@@ -62,13 +62,13 @@ func Lock(c *fiber.Ctx) error {
 	var filePaths []string
 	for _, path := range reqBody.Paths {
 		// Make sure path exists in branch remote
-		if _, ok := branch.Commit.HashMap[path]; ok {
+		if _, ok := branch.Commit.Files[path]; ok {
 			// File path exists
 			filePaths = append(filePaths, path)
 		} else {
 			// File path does not exist in branch remote, check if path is a directory
 			found := false
-			for _, key := range lo.Keys(branch.Commit.HashMap) {
+			for _, key := range lo.Keys(branch.Commit.Files) {
 				// Path is a directory, add all committed files in directory
 				if strings.HasPrefix(key, path) {
 					filePaths = append(filePaths, key)
@@ -180,13 +180,13 @@ func Unlock(c *fiber.Ctx) error {
 	var filePaths []string
 	for _, path := range reqBody.Paths {
 		// Make sure path exists in branch remote
-		if _, ok := branch.Commit.HashMap[path]; ok {
+		if _, ok := branch.Commit.Files[path]; ok {
 			// File path exists
 			filePaths = append(filePaths, path)
 		} else {
 			// File path does not exist in branch remote, check if path is a directory
 			found := false
-			for _, key := range lo.Keys(branch.Commit.HashMap) {
+			for _, key := range lo.Keys(branch.Commit.Files) {
 				// Path is a directory, add all committed files in directory
 				if strings.HasPrefix(key, path) {
 					filePaths = append(filePaths, key)
