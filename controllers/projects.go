@@ -79,6 +79,14 @@ func CreateProject(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")
 
+	// Parse request body
+	var body models.CreateProjectRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	// Check if project name is unique for team
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -95,11 +103,13 @@ func CreateProject(c *fiber.Ctx) error {
 
 	// Create new project
 	project := models.Project{
-		ID:              primitive.NewObjectID(),
-		CreatedAt:       time.Now(),
-		Name:            projectName,
-		TeamID:          team.ID,
-		DefaultBranchID: branchId,
+		ID:                   primitive.NewObjectID(),
+		CreatedAt:            time.Now(),
+		Name:                 projectName,
+		TeamID:               team.ID,
+		DefaultBranchID:      branchId,
+		ThumbnailURL:         body.ThumbnailURL,
+		EnablePatchRevisions: body.EnablePatchRevisions,
 	}
 
 	// Create project in database
