@@ -14,6 +14,7 @@ import (
 	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -327,7 +328,14 @@ func CreateCommit(c *fiber.Ctx) error {
 	storedFiles = append(storedFiles, reqBody.ModifiedFiles...)
 
 	for _, path := range storedFiles {
-		hash := commit.Files[path].Hash
+		var hash string
+		if project.EnablePatchRevisions && commit.Files[path].PatchHashes != nil {
+			// Newly-uploaded patch file for a modified file
+			hash, _ = lo.Last(commit.Files[path].PatchHashes)
+		} else {
+			// Snapshot for uploaded file
+			hash = commit.Files[path].Hash
+		}
 
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
