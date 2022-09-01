@@ -23,6 +23,7 @@ import (
 func IsAuthenticated(c *fiber.Ctx) error {
 	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
+		fmt.Println("[middleware.IsAuthenticated] No session token provided")
 		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
 			"error": "Unauthorized",
 		})
@@ -33,6 +34,8 @@ func IsAuthenticated(c *fiber.Ctx) error {
 		SessionToken: sessionToken,
 	})
 	if err != nil {
+		fmt.Printf("[middleware.IsAuthenticated] Failed to authenticate session: %v\n", err)
+		fmt.Printf("[middleware.IsAuthenticated] Session token: %s\n", sessionToken)
 		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
 			"error": "Unauthorized",
 		})
@@ -110,6 +113,7 @@ func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 			})
 		}
 		if !res.HasAccess {
+			fmt.Println("[middleware.HasTeamAccess] No access to team \"%s\"", teamName)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Unauthorized",
 			})
