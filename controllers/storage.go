@@ -44,8 +44,9 @@ func PresignMany(c *fiber.Ctx) error {
 
 	// Generate presigned URLs
 	client := s3.NewPresignClient(config.SI.Client)
-	keyUrlMap := make(map[string]storage.PresignResponse)
+	keyUrlMap := make(map[string]models.PresignResponse)
 
+	// TODO: Presign in parallel
 	for _, opt := range body {
 		remoteKey := FormatStorageKey(*team, projectName, opt.Key)
 		method := storage.ToPresignMethod(opt.Method)

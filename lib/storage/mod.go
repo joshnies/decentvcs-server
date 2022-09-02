@@ -46,29 +46,24 @@ type PresignOptions struct {
 	Team *models.Team
 }
 
-type PresignResponse struct {
-	UploadID string
-	URLs     []string
-}
-
 // Returns a presigned URL for fetching or uploading an object from/to storage, respectively.
-func Presign(ctx context.Context, opt PresignOptions) (PresignResponse, error) {
+func Presign(ctx context.Context, opt PresignOptions) (models.PresignResponse, error) {
 	if opt.Method == PresignMethodGET {
 		return presignGet(ctx, opt)
 	} else if opt.Method == PresignMethodPUT {
 		return presignPut(ctx, opt)
 	}
-	return PresignResponse{}, errors.New("presign method must be GET or PUT")
+	return models.PresignResponse{}, errors.New("presign method must be GET or PUT")
 }
 
 // Returns a presigned GET URL for fetching an object from storage.
-func presignGet(ctx context.Context, opt PresignOptions) (PresignResponse, error) {
+func presignGet(ctx context.Context, opt PresignOptions) (models.PresignResponse, error) {
 	res, err := opt.S3PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: &opt.Bucket,
 		Key:    &opt.Key,
 	})
 	if err != nil {
-		return PresignResponse{}, err
+		return models.PresignResponse{}, err
 	}
 
 	// Get object size
@@ -77,7 +72,7 @@ func presignGet(ctx context.Context, opt PresignOptions) (PresignResponse, error
 		Key:    &opt.Key,
 	})
 	if err != nil {
-		return PresignResponse{}, err
+		return models.PresignResponse{}, err
 	}
 
 	// Update team bandwidth usage
@@ -91,16 +86,17 @@ func presignGet(ctx context.Context, opt PresignOptions) (PresignResponse, error
 			},
 		},
 	); err != nil {
-		return PresignResponse{}, err
+		return models.PresignResponse{}, err
 	}
 
-	return PresignResponse{
+	return models.PresignResponse{
+		Key:  opt.Key,
 		URLs: []string{res.URL},
 	}, nil
 }
 
 // Returns a presigned PUT URL for uploading an object to storage.
-func presignPut(ctx context.Context, opt PresignOptions) (PresignResponse, error) {
+func presignPut(ctx context.Context, opt PresignOptions) (models.PresignResponse, error) {
 	var uploadID string
 	urls := []string{}
 
@@ -114,7 +110,7 @@ func presignPut(ctx context.Context, opt PresignOptions) (PresignResponse, error
 			Expires:     &expiresAt,
 		})
 		if err != nil {
-			return PresignResponse{}, err
+			return models.PresignResponse{}, err
 		}
 
 		uploadID = *multipartRes.UploadId
@@ -138,7 +134,7 @@ func presignPut(ctx context.Context, opt PresignOptions) (PresignResponse, error
 				ContentLength: currentSize,
 			})
 			if err != nil {
-				return PresignResponse{}, err
+				return models.PresignResponse{}, err
 			}
 
 			// Add presigned URL to result slice
@@ -155,13 +151,14 @@ func presignPut(ctx context.Context, opt PresignOptions) (PresignResponse, error
 			Key:    &opt.Key,
 		})
 		if err != nil {
-			return PresignResponse{}, err
+			return models.PresignResponse{}, err
 		}
 
 		urls = append(urls, res.URL)
 	}
 
-	return PresignResponse{
+	return models.PresignResponse{
+		Key:      opt.Key,
 		UploadID: uploadID,
 		URLs:     urls,
 	}, nil

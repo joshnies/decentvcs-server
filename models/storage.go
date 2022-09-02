@@ -10,11 +10,6 @@ type PresignObjectData struct {
 	ContentType string `json:"content_type"`
 }
 
-// Request body for `PresignMany` route.
-// type PresignManyRequestBody struct {
-// 	Keys []string `json:"keys"`
-// }
-
 // Request body for `PresignOne` route.
 type PresignOneRequestBody struct {
 	Method      string `json:"method"`
@@ -24,13 +19,14 @@ type PresignOneRequestBody struct {
 	ContentType string `json:"content_type"`
 }
 
-// Response body for `PresignOne` route.
-type PresignOneResponse struct {
-	// S3 multipart upload ID.
-	// Only present if `multipart` is true and method is `PUT`.
-	UploadID string `json:"upload_id"`
-	// Presigned URLs for each part of the object
+// Response body for `PresignOne` and `PresignMany` routes.
+type PresignResponse struct {
+	// Object key in storage.
+	Key string `json:"key"`
+	// Presigned URLs.
 	URLs []string `json:"urls"`
+	// ID of the multipart upload. Only present if `multipart` is true and method is `PUT`.
+	UploadID string `json:"upload_id"`
 }
 
 type MultipartUploadPart struct {
