@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/decentvcs/server/config"
+	"github.com/decentvcs/server/lib/storage"
 	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
@@ -17,25 +18,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type PresignMethod int
-
-const (
-	PresignMethodPUT PresignMethod = iota
-	PresignMethodGET
-)
-
-func FormatStorageKey(team models.Team, project models.Project, key string) string {
-	return fmt.Sprintf("%s/%s/%s", team.Name, project.Name, key)
+// Returns an object key for storage provider.
+func FormatStorageKey(team models.Team, projectName string, key string) string {
+	return fmt.Sprintf("%s/%s/%s", team.Name, projectName, key)
 }
 
-// Generate presigned GET URLs for many objects, scoped to a project.
-// These URLs are used by the client to upload files to storage without the need for
-// access keys or ACL.
+// Generate presigned URLs for fetching or uploading multiple objects from/to storage, respectively.
 //
-// Use `PresignOne` with the `PUT` method argument if you need to create PUT URLs.
-//
-// Returns an array of presigned URLs.
-func PresignManyGET(c *fiber.Ctx) error {
+// Returns a map of key to PresignResponse.
+func PresignMany(c *fiber.Ctx) error {
 	team := team_lib.GetTeamFromContext(c)
 	projectName := c.Params("project_name")
 
@@ -43,22 +34,8 @@ func PresignManyGET(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	var project models.Project
-	if err := config.MI.DB.Collection("projects").FindOne(ctx, bson.M{"team_id": team.ID, "name": projectName}).Decode(&project); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Project not found",
-			})
-		}
-
-		fmt.Printf("[PresignManyGET] Error getting project: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
 	// Parse request body
-	var body models.PresignManyRequestBody
+	var body []models.PresignOneRequestBody
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
@@ -67,55 +44,29 @@ func PresignManyGET(c *fiber.Ctx) error {
 
 	// Generate presigned URLs
 	client := s3.NewPresignClient(config.SI.Client)
+	keyUrlMap := make(map[string]storage.PresignResponse)
 
-	// Generate presigned URLs
-	keyUrlMap := make(map[string]string)
-
-	for _, localKey := range body.Keys {
-		remoteKey := FormatStorageKey(*team, project, localKey)
-		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
-			Bucket: &config.SI.ProjectsBucket,
-			Key:    &remoteKey,
+	for _, opt := range body {
+		remoteKey := FormatStorageKey(*team, projectName, opt.Key)
+		method := storage.ToPresignMethod(opt.Method)
+		res, err := storage.Presign(ctx, storage.PresignOptions{
+			S3PresignClient: client,
+			Method:          method,
+			Bucket:          config.SI.ProjectsBucket,
+			Key:             remoteKey,
+			ContentType:     opt.ContentType,
+			Multipart:       method == storage.PresignMethodPUT,
+			Size:            opt.Size,
+			Team:            team,
 		})
 		if err != nil {
-			fmt.Printf("[PresignManyGET] Error generating presigned URL: %v\n", err)
+			fmt.Printf("[PresignOne] Error presigning URL: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
 		}
 
-		keyUrlMap[localKey] = res.URL
-
-		// Get object size
-		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.ProjectsBucket,
-			Key:    &remoteKey,
-		})
-		if err != nil {
-			fmt.Printf("[PresignOne] Error getting object size: %v\n", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-
-		// Add object size to team bandwidth usage
-		team.BandwidthUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
-	}
-
-	// Update team bandwidth usage in database
-	if _, err := config.MI.DB.Collection("teams").UpdateOne(
-		ctx,
-		bson.M{"_id": team.ID},
-		bson.M{
-			"$set": bson.M{
-				"bandwidth_used_mb": team.BandwidthUsedMB,
-			},
-		},
-	); err != nil {
-		fmt.Printf("[PresignManyGET] Error updating team bandwidth usage: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		keyUrlMap[opt.Key] = res
 	}
 
 	return c.JSON(keyUrlMap)
@@ -131,10 +82,10 @@ func PresignOne(c *fiber.Ctx) error {
 	projectName := c.Params("project_name")
 
 	// Validate presign method
-	methodStr := strings.ToUpper(c.Params("method"))
-	if methodStr != "PUT" && methodStr != "GET" {
+	method := strings.ToUpper(c.Params("method"))
+	if method != "PUT" && method != "GET" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid presign method. Must be PUT or GET",
+			"error": "Invalid presign method; must be PUT or GET",
 		})
 	}
 
@@ -164,140 +115,48 @@ func PresignOne(c *fiber.Ctx) error {
 		})
 	}
 
-	var method PresignMethod
-	if methodStr == "PUT" {
-		method = PresignMethodPUT
-	} else if methodStr == "GET" {
-		method = PresignMethodGET
-	} else {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid presign method. Must be \"PUT\" or \"GET\".",
-		})
-	}
-
 	client := s3.NewPresignClient(config.SI.Client)
-	remoteKey := FormatStorageKey(*team, project, body.Key)
-	var uploadId string
-	urls := []string{}
+	remoteKey := FormatStorageKey(*team, project.Name, body.Key)
 
-	if method == PresignMethodPUT {
-		// PUT
-		if body.Multipart {
-			// Multipart upload
-			contentType := body.ContentType
-			expiresAt := time.Now().Add(time.Hour * 24) // 24 hours
-			multipartRes, err := config.SI.Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-				Bucket:      &config.SI.ProjectsBucket,
-				Key:         &remoteKey,
-				ContentType: &contentType,
-				Expires:     &expiresAt,
-			})
-			if err != nil {
-				fmt.Println(err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			uploadId = *multipartRes.UploadId
-			remaining := body.Size
-			var partNum int32 = 1
-			var currentSize int64
-			for remaining != 0 {
-				// Determine current part size
-				if remaining < config.SI.MultipartUploadPartSize {
-					currentSize = remaining
-				} else {
-					currentSize = config.SI.MultipartUploadPartSize
-				}
-
-				// Generate presigned URL
-				res, err := client.PresignUploadPart(ctx, &s3.UploadPartInput{
-					Bucket:        &config.SI.ProjectsBucket,
-					Key:           &remoteKey,
-					UploadId:      multipartRes.UploadId,
-					PartNumber:    partNum,
-					ContentLength: currentSize,
-				})
-				if err != nil {
-					fmt.Printf("[PresignOne] Error presigning PUT URL for an upload part: %v\n", err)
-					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-						"error": "Internal server error",
-					})
-				}
-
-				// Add presigned URL to result slice
-				urls = append(urls, res.URL)
-
-				// Update remaining size and part number
-				remaining -= currentSize
-				partNum++
-			}
-		} else {
-			// Single upload
-			res, err := client.PresignPutObject(ctx, &s3.PutObjectInput{
-				Bucket: &config.SI.ProjectsBucket,
-				Key:    &remoteKey,
-			})
-			if err != nil {
-				fmt.Printf("[PresignOne] Error presigning PUT URL for a single object: %v\n", err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
-			urls = append(urls, res.URL)
-		}
-	} else {
-		// GET
-		//
-		// Generate presigned URL
-		res, err := client.PresignGetObject(ctx, &s3.GetObjectInput{
-			Bucket: &config.SI.ProjectsBucket,
-			Key:    &remoteKey,
+	if method == "PUT" {
+		res, err := storage.Presign(ctx, storage.PresignOptions{
+			S3PresignClient: client,
+			Method:          storage.PresignMethodPUT,
+			Bucket:          config.SI.ProjectsBucket,
+			Key:             remoteKey,
+			ContentType:     body.ContentType,
+			Multipart:       true,
+			Size:            body.Size,
 		})
 		if err != nil {
-			fmt.Printf("[PresignOne] Error presigning GET URL for an object: %v\n", err)
+			fmt.Printf("[PresignOne] Error presigning GET URL: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
 		}
 
-		urls = append(urls, res.URL)
-
-		// Get object size
-		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.ProjectsBucket,
-			Key:    &remoteKey,
+		return c.JSON(res)
+	} else if method == "GET" {
+		res, err := storage.Presign(ctx, storage.PresignOptions{
+			S3PresignClient: client,
+			Method:          storage.PresignMethodGET,
+			Bucket:          config.SI.ProjectsBucket,
+			Key:             remoteKey,
+			ContentType:     body.ContentType,
+			Team:            team,
 		})
 		if err != nil {
-			fmt.Printf("[PresignOne] Error getting object size: %v\n", err)
+			fmt.Printf("[PresignOne] Error presigning GET URL: %v\n", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
 			})
 		}
 
-		// Update team bandwidth usage
-		team.BandwidthUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
-		if _, err = config.MI.DB.Collection("teams").UpdateOne(
-			ctx,
-			bson.M{"_id": team.ID},
-			bson.M{
-				"$set": bson.M{
-					"bandwidth_used_mb": team.BandwidthUsedMB,
-				},
-			},
-		); err != nil {
-			fmt.Printf("[PresignOne] Error updating team bandwidth usage: %v\n", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
+		return c.JSON(res)
 	}
 
-	return c.JSON(models.PresignOneResponse{
-		UploadID: uploadId,
-		URLs:     urls,
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"error": "Invalid presign method; must be PUT or GET",
 	})
 }
 
@@ -344,7 +203,7 @@ func CompleteMultipartUpload(c *fiber.Ctx) error {
 	}
 
 	// Complete multipart upload
-	key := FormatStorageKey(*team, project, body.Key)
+	key := FormatStorageKey(*team, project.Name, body.Key)
 	if _, err := config.SI.Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &config.SI.ProjectsBucket,
 		Key:      &key,

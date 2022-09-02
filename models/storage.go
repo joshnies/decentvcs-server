@@ -11,12 +11,13 @@ type PresignObjectData struct {
 }
 
 // Request body for `PresignMany` route.
-type PresignManyRequestBody struct {
-	Keys []string `json:"keys"`
-}
+// type PresignManyRequestBody struct {
+// 	Keys []string `json:"keys"`
+// }
 
 // Request body for `PresignOne` route.
 type PresignOneRequestBody struct {
+	Method      string `json:"method"`
 	Key         string `json:"key"`
 	Multipart   bool   `json:"multipart"`
 	Size        int64  `json:"size"`

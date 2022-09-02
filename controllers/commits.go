@@ -340,7 +340,7 @@ func CreateCommit(c *fiber.Ctx) error {
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		storageKey := FormatStorageKey(*team, project, hash)
+		storageKey := FormatStorageKey(*team, project.Name, hash)
 		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
 			Bucket: &config.SI.ProjectsBucket,
 			Key:    &storageKey,
