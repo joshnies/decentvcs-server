@@ -30,8 +30,6 @@ type PresignOneRequest struct {
 
 // Response body for `PresignOne` and `PresignMany` routes.
 type PresignResponse struct {
-	// Object key in storage.
-	Key string `json:"key"`
 	// Presigned URLs.
 	URLs []string `json:"urls"`
 	// ID of the multipart upload. Only present if `multipart` is true and method is `PUT`.

@@ -90,7 +90,6 @@ func presignGet(ctx context.Context, opt PresignOptions) (models.PresignResponse
 	}
 
 	return models.PresignResponse{
-		Key:  opt.Key,
 		URLs: []string{res.URL},
 	}, nil
 }
@@ -129,7 +128,7 @@ func presignPut(ctx context.Context, opt PresignOptions) (models.PresignResponse
 			res, err := opt.S3PresignClient.PresignUploadPart(ctx, &s3.UploadPartInput{
 				Bucket:        &opt.Bucket,
 				Key:           &opt.Key,
-				UploadId:      multipartRes.UploadId,
+				UploadId:      &uploadID,
 				PartNumber:    partNum,
 				ContentLength: currentSize,
 			})
@@ -158,7 +157,6 @@ func presignPut(ctx context.Context, opt PresignOptions) (models.PresignResponse
 	}
 
 	return models.PresignResponse{
-		Key:      opt.Key,
 		UploadID: uploadID,
 		URLs:     urls,
 	}, nil
