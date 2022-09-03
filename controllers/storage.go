@@ -35,11 +35,22 @@ func PresignMany(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Parse request body
-	var body []models.PresignOneRequestBody
+	var body []models.PresignOneRequest
 	if err := c.BodyParser(&body); err != nil {
+		fmt.Printf("[PresignMany] [DEBUG] Error parsing request body: %v\n", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
 		})
+	}
+
+	// Validate request body
+	for i, bodyItem := range body {
+		if err := config.Validator.Struct(bodyItem); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": err.Error(),
+				"index": i,
+			})
+		}
 	}
 
 	// Generate presigned URLs
@@ -109,7 +120,7 @@ func PresignOne(c *fiber.Ctx) error {
 	}
 
 	// Parse request body
-	var body models.PresignOneRequestBody
+	var body models.PresignOneRequest
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Bad request",
