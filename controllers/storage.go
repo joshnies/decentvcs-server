@@ -67,7 +67,7 @@ func PresignMany(c *fiber.Ctx) error {
 			Bucket:          config.SI.ProjectsBucket,
 			Key:             remoteKey,
 			ContentType:     opt.ContentType,
-			Multipart:       method == storage.PresignMethodPUT,
+			Multipart:       opt.Multipart,
 			Size:            opt.Size,
 			Team:            team,
 		})
@@ -137,7 +137,7 @@ func PresignOne(c *fiber.Ctx) error {
 			Bucket:          config.SI.ProjectsBucket,
 			Key:             remoteKey,
 			ContentType:     body.ContentType,
-			Multipart:       true,
+			Multipart:       body.Multipart,
 			Size:            body.Size,
 		})
 		if err != nil {
