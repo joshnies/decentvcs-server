@@ -7,14 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/decentvcs/server/config"
 	"github.com/decentvcs/server/lib/auth"
 	"github.com/decentvcs/server/lib/branch_lib"
 	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
-	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -322,47 +320,54 @@ func CreateCommit(c *fiber.Ctx) error {
 		})
 	}
 
+	// TODO: Calculate team metrics in separate microservice
 	// Get file sizes from storage
-	var storedFiles []string
-	storedFiles = append(storedFiles, reqBody.CreatedFiles...)
-	storedFiles = append(storedFiles, reqBody.ModifiedFiles...)
+	// var storedFiles []string
+	// storedFiles = append(storedFiles, reqBody.CreatedFiles...)
+	// storedFiles = append(storedFiles, reqBody.ModifiedFiles...)
 
-	for _, path := range storedFiles {
-		var hash string
-		if project.EnablePatchRevisions && commit.Files[path].PatchHashes != nil {
-			// Newly-uploaded patch file for a modified file
-			hash, _ = lo.Last(commit.Files[path].PatchHashes)
-		} else {
-			// Snapshot for uploaded file
-			hash = commit.Files[path].Hash
-		}
+	// for _, path := range storedFiles {
+	// 	var hash string
+	// 	if project.EnablePatchRevisions && commit.Files[path].PatchHashes != nil {
+	// 		// Newly-uploaded patch file for a modified file
+	// 		hash, _ = lo.Last(commit.Files[path].PatchHashes)
+	// 	} else {
+	// 		// Snapshot for uploaded file
+	// 		hash = commit.Files[path].Hash
+	// 	}
 
-		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
+	// 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
+	// 	defer cancel()
 
-		storageKey := FormatStorageKey(*team, project.Name, hash)
-		s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
-			Bucket: &config.SI.ProjectsBucket,
-			Key:    &storageKey,
-		})
-		if err != nil {
-			fmt.Printf("[CreateCommit] Error getting file size of object \"%s\": %v\n", storageKey, err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
+	// 	storageKey := FormatStorageKey(*team, project.Name, hash)
+	// 	s3Res, err := config.SI.Client.HeadObject(ctx, &s3.HeadObjectInput{
+	// 		Bucket: &config.SI.ProjectsBucket,
+	// 		Key:    &storageKey,
+	// 	})
+	// 	if err != nil {
+	// 		fmt.Printf("[CreateCommit] Error getting file size of object \"%s\": %v\n", storageKey, err)
+	// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 			"error": "Internal server error",
+	// 		})
+	// 	}
 
-		// Calculate and add file size, rounded up to the nearest MB
-		team.StorageUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
-	}
+	// 	// Calculate and add file size, rounded up to the nearest MB
+	// 	team.StorageUsedMB += float64(s3Res.ContentLength) / 1024 / 1024
+	// }
 
-	// Update team storage usage in database
-	if _, err = config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": bson.M{"storage_used_mb": team.StorageUsedMB}}); err != nil {
-		fmt.Printf("[CreateCommit] Failed to update team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
+	// // Update team storage usage in database
+	// if _, err = config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": bson.M{"storage_used_mb": team.StorageUsedMB}}); err != nil {
+	// 	fmt.Printf("[CreateCommit] Failed to update team: %v\n", err)
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"error": "Internal server error",
+	// 	})
+	// }
+
+	// Omit large fields to prevent memory issues
+	commit.CreatedFiles = nil
+	commit.ModifiedFiles = nil
+	commit.DeletedFiles = nil
+	commit.Files = nil
 
 	return c.JSON(commit)
 }
