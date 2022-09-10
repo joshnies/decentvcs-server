@@ -113,7 +113,7 @@ func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 			})
 		}
 		if !res.HasAccess {
-			fmt.Println("[middleware.HasTeamAccess] No access to team \"%s\"", teamName)
+			fmt.Printf("[middleware.HasTeamAccess] No access to team \"%s\"\n", teamName)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Unauthorized",
 			})
