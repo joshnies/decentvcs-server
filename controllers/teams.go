@@ -354,15 +354,6 @@ func InviteToTeam(c *fiber.Ctx) error {
 				})
 			}
 
-			// Create default team in database
-			team, _, err := team_lib.CreateDefault(inviteRes.UserID, email)
-			if err != nil {
-				fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
-
 			// Create user data in database with project role
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
@@ -370,15 +361,19 @@ func InviteToTeam(c *fiber.Ctx) error {
 			userData := models.UserData{
 				UserID:        inviteRes.UserID,
 				DefaultTeamID: team.ID,
-				Roles: []models.RoleObject{
-					{
-						Role:   models.RoleCollab,
-						TeamID: team.ID,
-					},
-				},
+				Roles:         []models.RoleObject{},
 			}
 			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
 				fmt.Printf("Error creating user data for new invited user with ID \"%s\": %v\n", inviteRes.UserID, err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
+			// Create default team in database
+			_, userData, err = team_lib.CreateDefault(inviteRes.UserID, email)
+			if err != nil {
+				fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
 				})
