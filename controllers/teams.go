@@ -27,7 +27,14 @@ import (
 // Get one team.
 func GetOneTeam(c *fiber.Ctx) error {
 	// Return team from context
-	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
+	team := c.UserContext().Value(models.ContextKeyTeam)
+
+	if team == nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Team not found",
+		})
+	}
+
 	return c.JSON(team)
 }
 
