@@ -40,6 +40,8 @@ func GetOneTeam(c *fiber.Ctx) error {
 
 // Get many teams.
 func GetManyTeams(c *fiber.Ctx) error {
+	userData := c.UserContext().Value(models.ContextKeyUserData).(models.UserData)
+
 	// Get pagination query parameters
 	var skip int64 = 0
 	var limit int64 = 25
@@ -50,6 +52,21 @@ func GetManyTeams(c *fiber.Ctx) error {
 
 	if c.Query("limit") != "" {
 		limit, _ = strconv.ParseInt(c.Query("limit"), 10, 64)
+	}
+
+	// Build query
+	query := bson.M{}
+	mine := c.Query("mine") == "true"
+
+	if mine {
+		// Include only the user's teams
+		query["$or"] = []bson.M{
+			{"id": userData.DefaultTeamID},
+		}
+
+		for _, role := range userData.Roles {
+			query["$or"] = append(query["$or"].([]bson.M), bson.M{"id": role.TeamID})
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
