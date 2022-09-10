@@ -57,7 +57,7 @@ func IsAuthenticated(c *fiber.Ctx) error {
 				UserID:    stytchUser.UserID,
 				Roles:     []models.RoleObject{},
 			}
-			if _, err := config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
+			if _, err = config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
 				fmt.Printf("[middleware.IsAuthenticated] Error creating user data for user with ID \"%s\": %v\n", stytchUser.UserID, err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Internal server error",
@@ -65,7 +65,7 @@ func IsAuthenticated(c *fiber.Ctx) error {
 			}
 
 			// Create default team
-			_, err := team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
+			_, userData, err = team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
 			if err != nil {
 				fmt.Printf("[middleware.IsAuthenticated] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

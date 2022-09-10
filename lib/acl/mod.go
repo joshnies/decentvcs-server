@@ -3,6 +3,7 @@ package acl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/decentvcs/server/config"
@@ -15,6 +16,7 @@ import (
 // Returns true if user has access to the given team (with any role).
 func HasTeamAccess(userData *models.UserData, teamName string, minRole models.Role) (models.HasTeamAccessResponse, error) {
 	if userData == nil {
+		fmt.Println("[acl.HasTeamAccess] userData is nil")
 		return models.HasTeamAccessResponse{HasAccess: false}, nil
 	}
 
@@ -58,6 +60,7 @@ func HasTeamAccess(userData *models.UserData, teamName string, minRole models.Ro
 	}
 
 	// No role found for team, so user has no access
+	fmt.Println("[acl.HasTeamAccess] No role found for team")
 	return models.HasTeamAccessResponse{HasAccess: false}, nil
 }
 

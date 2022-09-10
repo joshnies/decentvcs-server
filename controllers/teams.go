@@ -348,7 +348,7 @@ func InviteToTeam(c *fiber.Ctx) error {
 			}
 
 			// Create default team in database
-			team, err := team_lib.CreateDefault(inviteRes.UserID, email)
+			team, _, err := team_lib.CreateDefault(inviteRes.UserID, email)
 			if err != nil {
 				fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

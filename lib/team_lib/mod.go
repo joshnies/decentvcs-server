@@ -21,7 +21,7 @@ func GetTeamFromContext(c *fiber.Ctx) *models.Team {
 }
 
 // Create the default team for a new user.
-func CreateDefault(userID string, email string) (models.Team, error) {
+func CreateDefault(userID string, email string) (models.Team, models.UserData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -32,9 +32,9 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": userID}).Decode(&userData); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return models.Team{}, errors.New("user data not found")
+			return models.Team{}, models.UserData{}, errors.New("user data not found")
 		}
-		return models.Team{}, err
+		return models.Team{}, models.UserData{}, err
 	}
 
 	// Check if there's a team already with that name
@@ -45,7 +45,7 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 			alreadyExists = false
 		} else {
 			fmt.Printf("Error searching for existing team with name \"%s\": %v\n", emailUser, err)
-			return models.Team{}, err
+			return models.Team{}, models.UserData{}, err
 		}
 	}
 
@@ -62,7 +62,7 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 	}
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
 		fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", userData.UserID, err)
-		return models.Team{}, err
+		return models.Team{}, models.UserData{}, err
 	}
 
 	// Update user data with roles and set new team as default
@@ -78,8 +78,9 @@ func CreateDefault(userID string, email string) (models.Team, error) {
 		}
 
 		fmt.Printf("Error adding team owner role to user: %v\n", err)
-		return models.Team{}, err
+		return models.Team{}, models.UserData{}, err
 	}
 
-	return team, nil
+	userData.Roles = roles
+	return team, userData, nil
 }
