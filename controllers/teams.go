@@ -206,24 +206,6 @@ func UpdateTeam(c *fiber.Ctx) error {
 	if reqBody.Name != "" {
 		updateData["name"] = reqBody.Name
 	}
-	if reqBody.StorageUsedMB != 0 {
-		if reqBody.StorageUsedMB == -1 {
-			// Reset to 0.
-			// Can't provide 0 directly, since this would be overridden each time it's not provided in an update.
-			updateData["storage_used_mb"] = 0
-		} else {
-			updateData["storage_used_mb"] = reqBody.StorageUsedMB
-		}
-	}
-	if reqBody.BandwidthUsedMB != 0 {
-		if reqBody.BandwidthUsedMB == -1 {
-			// Reset to 0.
-			// Can't provide 0 directly, since this would be overridden each time it's not provided in an update.
-			updateData["bandwidth_used_mb"] = 0
-		} else {
-			updateData["bandwidth_used_mb"] = reqBody.BandwidthUsedMB
-		}
-	}
 
 	// Update team
 	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": updateData}); err != nil {
@@ -234,6 +216,47 @@ func UpdateTeam(c *fiber.Ctx) error {
 	}
 
 	team.Name = reqBody.Name
+	return c.JSON(team)
+}
+
+// Add to a team's usage metrics.
+func UpdateTeamUsage(c *fiber.Ctx) error {
+	// Get team from context
+	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
+
+	// Parse request body
+	var reqBody models.UpdateTeamUsageRequest
+	if err := c.BodyParser(&reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate request body
+	if err := config.Validator.Struct(reqBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Update team model locally (for response) and construct data for update query
+	updateData := bson.M{}
+	team.StorageUsedMB = team.StorageUsedMB + reqBody.StorageUsedMB
+	team.BandwidthUsedMB = team.BandwidthUsedMB + reqBody.BandwidthUsedMB
+	updateData["storage_used_mb"] = team.StorageUsedMB
+	updateData["bandwidth_used_mb"] = team.BandwidthUsedMB
+
+	// Update team
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$set": updateData}); err != nil {
+		fmt.Printf("Error updating team: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
 	return c.JSON(team)
 }
 
