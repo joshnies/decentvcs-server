@@ -241,10 +241,16 @@ func UpdateTeamUsage(c *fiber.Ctx) error {
 
 	// Update team model locally (for response) and construct data for update query
 	updateData := bson.M{}
-	team.StorageUsedMB = team.StorageUsedMB + reqBody.StorageUsedMB
-	team.BandwidthUsedMB = team.BandwidthUsedMB + reqBody.BandwidthUsedMB
-	updateData["storage_used_mb"] = team.StorageUsedMB
-	updateData["bandwidth_used_mb"] = team.BandwidthUsedMB
+
+	if reqBody.StorageUsedMB > 0 {
+		team.StorageUsedMB = team.StorageUsedMB + reqBody.StorageUsedMB
+		updateData["storage_used_mb"] = team.StorageUsedMB
+	}
+
+	if reqBody.BandwidthUsedMB > 0 {
+		team.BandwidthUsedMB = team.BandwidthUsedMB + reqBody.BandwidthUsedMB
+		updateData["bandwidth_used_mb"] = team.BandwidthUsedMB
+	}
 
 	// Update team
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

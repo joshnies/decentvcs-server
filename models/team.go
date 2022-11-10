@@ -56,10 +56,10 @@ type UpdateTeamRequest struct {
 type UpdateTeamUsageRequest struct {
 	// Additional storage used in MB. This will be added to the team's current storage usage.
 	// All projects within the team count towards this total.
-	StorageUsedMB float64 `json:"storage_used_mb" validate:"gt=0"`
+	StorageUsedMB float64 `json:"storage_used_mb" validate:"gte=0"`
 	// Additional bandwidth used in MB. This will be added to the team's current bandwidth usage.
 	// All projects within the team count towards this total.
-	BandwidthUsedMB float64 `json:"bandwidth_used_mb" validate:"gt=0"`
+	BandwidthUsedMB float64 `json:"bandwidth_used_mb" validate:"gte=0"`
 }
 
 // Request body for `UpdateOneTeamPlan`.
