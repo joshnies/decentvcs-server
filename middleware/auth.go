@@ -163,6 +163,18 @@ func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
 		}
 	}
 
+	// Check if expired
+	if dbAccessKey.ExpiresAt.Before(time.Now()) {
+		// Delete expired access key from database
+		if _, err := config.MI.DB.Collection("access_keys").DeleteOne(ctx, bson.M{"id": accessKeyID}); err != nil {
+			fmt.Printf("[middleware.authenticateWithAccessKey] Error deleting expired access key: %v\n", err)
+		}
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
 	// Get user data
 	var userData models.UserData
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": dbAccessKey.UserID}).Decode(&userData); err != nil {
