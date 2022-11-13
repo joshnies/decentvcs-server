@@ -250,8 +250,6 @@ func DeleteOneProject(c *fiber.Ctx) error {
 		})
 	}
 
-	// ---- From here on out, it's been validated that the user has access to the project
-
 	// Delete all commits for project
 	_, err = config.MI.DB.Collection("commits").DeleteMany(context.Background(), bson.M{"project_id": project.ID})
 	if err != nil {
