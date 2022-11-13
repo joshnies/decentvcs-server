@@ -26,12 +26,12 @@ func IsAuthenticated(c *fiber.Ctx) error {
 	accessKey := c.Get(constants.AccessKeyHeader)
 	if accessKey != "" {
 		// Authenticate with access key
-		fmt.Println("[middleware.IsAuthenticated] Authenticating with access key")
+		fmt.Println("[middleware.IsAuthenticated] Authenticating with access key") // DEBUG
 		return authenticateWithAccessKey(c, accessKey)
 	}
 
 	// Get session token from header for Stytch auth
-	fmt.Println("[middleware.IsAuthenticated] Authenticating with Stytch")
+	fmt.Println("[middleware.IsAuthenticated] Authenticating with Stytch") // DEBUG
 	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
 		fmt.Println("[middleware.IsAuthenticated] No session token provided")
@@ -146,15 +146,17 @@ func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
 
 	accessKeyID, err := primitive.ObjectIDFromHex(accessKeyIDHex)
 	if err != nil {
+		fmt.Println("[middleware.IsAuthenticated] Unauthorized: Invalid access key ID")
 		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
 			"error": "Unauthorized",
 		})
 	}
 
 	var dbAccessKey models.AccessKey
-	if err := config.MI.DB.Collection("access_keys").FindOne(ctx, bson.M{"id": accessKeyID}).Decode(&dbAccessKey); err != nil {
+	if err := config.MI.DB.Collection("access_keys").FindOne(ctx, bson.M{"_id": accessKeyID}).Decode(&dbAccessKey); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			// Access key doesn't exist
+			fmt.Println("[middleware.IsAuthenticated] Unauthorized: Access key doesn't exist")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Unauthorized",
 			})
@@ -174,6 +176,7 @@ func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
 			fmt.Printf("[middleware.authenticateWithAccessKey] Error deleting expired access key: %v\n", err)
 		}
 
+		fmt.Println("[middleware.IsAuthenticated] Unauthorized: Access key expired")
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
