@@ -21,6 +21,14 @@ import (
 
 // Middleware that validates the Stytch session.
 func IsAuthenticated(c *fiber.Ctx) error {
+	// Get access key from header
+	accessKey := c.Get(constants.AccessKeyHeader)
+	if accessKey != "" {
+		// Authenticate with access key
+		return authenticateWithAccessKey(c, accessKey)
+	}
+
+	// Get session token from header for Stytch auth
 	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
 		fmt.Println("[middleware.IsAuthenticated] No session token provided")
@@ -125,4 +133,57 @@ func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 
 		return c.Next()
 	}
+}
+
+func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
+	// Get access key from database
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	accessKeyID, err := primitive.ObjectIDFromHex(accessKeyIDHex)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	var dbAccessKey models.AccessKey
+	if err := config.MI.DB.Collection("access_keys").FindOne(ctx, bson.M{"id": accessKeyID}).Decode(&dbAccessKey); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Access key doesn't exist
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Unauthorized",
+			})
+		} else {
+			// Unhandled error occurred
+			fmt.Printf("[middleware.authenticateWithAccessKey] Error getting access key: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// Get user data
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": dbAccessKey.UserID}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// User data doesn't exist
+			fmt.Printf("[middleware.authenticateWithAccessKey] Access key \"%s\" references a user that doesn't exist\n", accessKeyIDHex)
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Unauthorized",
+			})
+		} else {
+			// Unhandled error occurred
+			fmt.Printf("[middleware.authenticateWithAccessKey] Error getting user data: %v\n", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+				"error": "Internal server error",
+			})
+		}
+	}
+
+	// Add data to context for later use
+	newUserCtx := context.WithValue(c.UserContext(), models.ContextKeyUserData, userData)
+	c.SetUserContext(newUserCtx)
+
+	return c.Next()
 }
