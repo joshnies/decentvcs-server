@@ -26,10 +26,12 @@ func IsAuthenticated(c *fiber.Ctx) error {
 	accessKey := c.Get(constants.AccessKeyHeader)
 	if accessKey != "" {
 		// Authenticate with access key
+		fmt.Println("[middleware.IsAuthenticated] Authenticating with access key")
 		return authenticateWithAccessKey(c, accessKey)
 	}
 
 	// Get session token from header for Stytch auth
+	fmt.Println("[middleware.IsAuthenticated] Authenticating with Stytch")
 	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
 		fmt.Println("[middleware.IsAuthenticated] No session token provided")
@@ -104,6 +106,7 @@ func IsAuthenticated(c *fiber.Ctx) error {
 // Assumes that `IsAuthenticated` was included as middleware BEFORE this one.
 func HasTeamAccess(minRole models.Role) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		// Get user data & team from context
 		userData := auth.GetUserDataFromContext(c)
 		if userData == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
@@ -205,6 +208,11 @@ func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
 // Fiber middleware that ensures that the access key has the required scope to access the requested resource.
 func HasAccessKeyScope(scope string) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		if c.UserContext().Value(models.ContextKeyAccessKey) == nil {
+			// No access key, was authenticated with Stytch
+			return c.Next()
+		}
+
 		// Get access key from context
 		accessKey := c.UserContext().Value(models.ContextKeyAccessKey).(*models.AccessKey)
 		if accessKey == nil {

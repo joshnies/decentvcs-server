@@ -40,7 +40,7 @@ func GetOneTeam(c *fiber.Ctx) error {
 
 // Get many teams.
 func GetManyTeams(c *fiber.Ctx) error {
-	userData := c.UserContext().Value(models.ContextKeyUserData).(models.UserData)
+	userData := auth.GetUserDataFromContext(c)
 
 	// Get pagination query parameters
 	var skip int64 = 0

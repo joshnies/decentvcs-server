@@ -7,6 +7,7 @@ import (
 
 	"github.com/decentvcs/server/config"
 	"github.com/decentvcs/server/constants"
+	"github.com/decentvcs/server/lib/auth"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,7 +17,7 @@ import (
 // Create a new access key.
 func CreateAccessKey(c *fiber.Ctx) error {
 	// Get user & team from context
-	user := c.UserContext().Value(models.ContextKeyUserData).(*models.UserData)
+	userData := auth.GetUserDataFromContext(c)
 	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
 
 	// Create access key in database
@@ -25,7 +26,7 @@ func CreateAccessKey(c *fiber.Ctx) error {
 		ID:        accessKeyID,
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(time.Hour * 24), // expires in 24 hours after creation
-		UserID:    user.UserID,
+		UserID:    userData.UserID,
 		TeamID:    team.ID,
 		Scope:     constants.ScopeTeamUpdateUsage,
 	}
