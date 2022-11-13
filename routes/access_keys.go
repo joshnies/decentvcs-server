@@ -7,4 +7,5 @@ import (
 
 func RouteAccessKeys(router fiber.Router) {
 	router.Post("/", controllers.CreateAccessKey)
+	router.Delete("/", controllers.DeleteAccessKey)
 }

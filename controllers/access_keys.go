@@ -9,6 +9,7 @@ import (
 	"github.com/decentvcs/server/constants"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -40,4 +41,37 @@ func CreateAccessKey(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(accessKey)
+}
+
+// Delete the current request's access key.
+func DeleteAccessKey(c *fiber.Ctx) error {
+	// Get access key ID from header
+	accessKeyIDHex := c.Get(constants.AccessKeyHeader)
+	if accessKeyIDHex == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	accessKeyID, err := primitive.ObjectIDFromHex(accessKeyIDHex)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Delete access key from database
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	if _, err := config.MI.DB.Collection("access_keys").DeleteOne(ctx, bson.M{"id": accessKeyID}); err != nil {
+		fmt.Printf("[controllers.DeleteAccessKey] Failed to delete access key: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.JSON(map[string]string{
+		"message": "Access key deleted",
+	})
 }
