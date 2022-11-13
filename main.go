@@ -32,7 +32,7 @@ func main() {
 
 	// Create Fiber instance
 	app := fiber.New(fiber.Config{
-		AppName: "DecentVCS Server v0.1.0",
+		AppName: "DecentVCS Server v1.0.0",
 	})
 
 	// Configure global middleware
