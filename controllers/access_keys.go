@@ -65,7 +65,7 @@ func DeleteAccessKey(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	if _, err := config.MI.DB.Collection("access_keys").DeleteOne(ctx, bson.M{"id": accessKeyID}); err != nil {
+	if _, err := config.MI.DB.Collection("access_keys").DeleteOne(ctx, bson.M{"_id": accessKeyID}); err != nil {
 		fmt.Printf("[controllers.DeleteAccessKey] Failed to delete access key: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
 			"error": "Internal server error",
