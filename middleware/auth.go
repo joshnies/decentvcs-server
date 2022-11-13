@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/decentvcs/server/config"
@@ -195,7 +196,32 @@ func authenticateWithAccessKey(c *fiber.Ctx, accessKeyIDHex string) error {
 
 	// Add data to context for later use
 	newUserCtx := context.WithValue(c.UserContext(), models.ContextKeyUserData, userData)
+	newUserCtx = context.WithValue(newUserCtx, models.ContextKeyAccessKey, dbAccessKey)
 	c.SetUserContext(newUserCtx)
 
 	return c.Next()
+}
+
+// Fiber middleware that ensures that the access key has the required scope to access the requested resource.
+func HasAccessKeyScope(scope string) func(*fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		// Get access key from context
+		accessKey := c.UserContext().Value(models.ContextKeyAccessKey).(*models.AccessKey)
+		if accessKey == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+				"error": "Unauthorized",
+			})
+		}
+
+		// Check if access key has scope
+		for _, s := range strings.Split(accessKey.Scope, " ") {
+			if s == scope {
+				return c.Next()
+			}
+		}
+
+		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
+			"error": "Unauthorized",
+		})
+	}
 }
