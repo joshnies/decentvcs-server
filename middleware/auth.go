@@ -26,12 +26,10 @@ func IsAuthenticated(c *fiber.Ctx) error {
 	accessKey := c.Get(constants.AccessKeyHeader)
 	if accessKey != "" {
 		// Authenticate with access key
-		fmt.Println("[middleware.IsAuthenticated] Authenticating with access key") // DEBUG
 		return authenticateWithAccessKey(c, accessKey)
 	}
 
 	// Get session token from header for Stytch auth
-	fmt.Println("[middleware.IsAuthenticated] Authenticating with Stytch") // DEBUG
 	sessionToken := c.Get(constants.SessionTokenHeader)
 	if sessionToken == "" {
 		fmt.Println("[middleware.IsAuthenticated] No session token provided")
