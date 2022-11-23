@@ -417,13 +417,13 @@ func InviteToTeam(c *fiber.Ctx) error {
 			}
 
 			// Create default team in database
-			_, userData, err = team_lib.CreateDefault(inviteRes.UserID, email)
-			if err != nil {
-				fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
+			// _, userData, err = team_lib.CreateDefault(inviteRes.UserID, email)
+			// if err != nil {
+			// 	fmt.Printf("Error creating default team for user with ID \"%s\": %v\n", inviteRes.UserID, err)
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			// 		"error": "Internal server error",
+			// 	})
+			// }
 		} else {
 			// User already exists in auth provider, get user data from database
 			stytchUser := searchRes.Results[0]

@@ -11,7 +11,6 @@ import (
 	"github.com/decentvcs/server/constants"
 	"github.com/decentvcs/server/lib/acl"
 	"github.com/decentvcs/server/lib/auth"
-	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stytchauth/stytch-go/v5/stytch"
@@ -74,13 +73,13 @@ func IsAuthenticated(c *fiber.Ctx) error {
 			}
 
 			// Create default team
-			_, userData, err = team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
-			if err != nil {
-				fmt.Printf("[middleware.IsAuthenticated] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Internal server error",
-				})
-			}
+			// _, userData, err = team_lib.CreateDefault(stytchUser.UserID, stytchUser.Emails[0].Email)
+			// if err != nil {
+			// 	fmt.Printf("[middleware.IsAuthenticated] Error creating default team for user with ID \"%s\": %v\n", stytchUser.UserID, err)
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			// 		"error": "Internal server error",
+			// 	})
+			// }
 		} else {
 			// Unhandled error occurred
 			fmt.Printf("[middleware.IsAuthenticated] Error getting user data: %v\n", err)
