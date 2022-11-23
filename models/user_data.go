@@ -12,6 +12,9 @@ type UserData struct {
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	// ID of the user in our auth provider.
 	UserID string `json:"user_id" bson:"user_id"`
+	// Display name of the user.
+	// By default, this is the prefix of the user's email address.
+	Username string `json:"username" bson:"username"`
 	// Roles for teams and projects.
 	Roles []RoleObject `json:"roles" bson:"roles"`
 	// ID of the team that new projects will be created in by default.
