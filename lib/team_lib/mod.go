@@ -1,8 +1,17 @@
 package team_lib
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/decentvcs/server/config"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
+	"github.com/lucsky/cuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Get team from user context.
@@ -74,3 +83,40 @@ func GetTeamFromContext(c *fiber.Ctx) *models.Team {
 // 	userData.Roles = roles
 // 	return team, userData, nil
 // }
+
+// Returns true if username is available.
+func IsUsernameAvailable(username string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var userData models.UserData
+	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"username": username}).Decode(&userData); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return true, nil
+		}
+
+		return false, fmt.Errorf("error getting user data while checking for username availability: %v", err)
+	}
+
+	// No ErrNoDocuments error, so username is taken
+	return false, nil
+}
+
+// Generate a unique username.
+//
+// The `preferredUsername` will be used if available.
+// If not, a random username will be generated in the format `user-<cuid>`.
+func GenerateUsername(preferredUsername string) (string, error) {
+	// Check if the preferred username is available
+	isAvailable, err := IsUsernameAvailable(preferredUsername)
+	if err != nil {
+		return "", err
+	}
+
+	if isAvailable {
+		return preferredUsername, nil
+	}
+
+	// Preferred username is taken, so generate a random username
+	return fmt.Sprintf("%s-%s", preferredUsername, cuid.Slug()), nil
+}

@@ -25,6 +25,8 @@ type UserData struct {
 
 // Request body for `UpdateUserData`.
 type UpdateUserDataRequest struct {
+	// Display name of the user.
+	Username string `json:"username" bson:"username"`
 	// URL of the user's avatar.
 	// Required since it's currently the only updateable field.
 	AvatarURL string `json:"avatar_url" validate:"required"`

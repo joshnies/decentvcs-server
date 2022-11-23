@@ -10,6 +10,7 @@ require (
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/gofiber/fiber/v2 v2.33.0
 	github.com/joho/godotenv v1.4.0
+	github.com/lucsky/cuid v1.2.1
 	github.com/samber/lo v1.25.0
 	github.com/sendgrid/sendgrid-go v3.11.1+incompatible
 	github.com/stytchauth/stytch-go/v5 v5.6.1

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -404,8 +405,18 @@ func InviteToTeam(c *fiber.Ctx) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
+			preferredUsername := strings.Split(email, "@")[0]
+			username, err := team_lib.GenerateUsername(preferredUsername)
+			if err != nil {
+				fmt.Printf("Error generating username: %v\n", err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
 			userData := models.UserData{
 				UserID:        inviteRes.UserID,
+				Username:      username,
 				DefaultTeamID: team.ID,
 				Roles:         []models.RoleObject{},
 			}

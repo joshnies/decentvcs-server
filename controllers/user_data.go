@@ -29,14 +29,23 @@ func UpdateUserData(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Build update data
+	updateData := bson.M{}
+
+	if reqBody.Username != "" {
+		updateData["username"] = reqBody.Username
+	}
+
+	if reqBody.AvatarURL != "" {
+		updateData["avatar_url"] = reqBody.AvatarURL
+	}
+
 	// Update user data
 	if _, err := config.MI.DB.Collection("user_data").UpdateByID(
 		ctx,
 		userData.ID,
 		bson.M{
-			"set": bson.M{
-				"avatar_url": reqBody.AvatarURL,
-			},
+			"set": updateData,
 		},
 	); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(err)

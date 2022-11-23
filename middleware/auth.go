@@ -11,6 +11,7 @@ import (
 	"github.com/decentvcs/server/constants"
 	"github.com/decentvcs/server/lib/acl"
 	"github.com/decentvcs/server/lib/auth"
+	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/decentvcs/server/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stytchauth/stytch-go/v5/stytch"
@@ -59,10 +60,20 @@ func IsAuthenticated(c *fiber.Ctx) error {
 	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": stytchUser.UserID}).Decode(&userData); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			// User data doesn't exist, so create it
+			preferredUsername := strings.Split(stytchUser.Emails[0].Email, "@")[0]
+			username, err := team_lib.GenerateUsername(preferredUsername)
+			if err != nil {
+				fmt.Printf("[middleware.IsAuthenticated] Error generating username: %v\n", err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Internal server error",
+				})
+			}
+
 			userData = models.UserData{
 				ID:        primitive.NewObjectID(),
 				CreatedAt: time.Now(),
 				UserID:    stytchUser.UserID,
+				Username:  username,
 				Roles:     []models.RoleObject{},
 			}
 			if _, err = config.MI.DB.Collection("user_data").InsertOne(ctx, userData); err != nil {
