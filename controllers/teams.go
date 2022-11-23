@@ -87,6 +87,10 @@ func GetManyTeams(c *fiber.Ctx) error {
 
 	cur.All(ctx, &teams)
 
+	if teams == nil {
+		teams = []models.Team{} // Return empty array instead of null
+	}
+
 	return c.JSON(teams)
 }
 
