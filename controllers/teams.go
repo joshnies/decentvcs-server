@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/decentvcs/server/config"
 	"github.com/decentvcs/server/lib/auth"
 	"github.com/decentvcs/server/lib/team_lib"
@@ -509,33 +508,4 @@ func InviteToTeam(c *fiber.Ctx) error {
 	}
 
 	return nil
-}
-
-// Delete a team's backdrop.
-func DeleteTeamBackdrop(c *fiber.Ctx) error {
-	// Get team from context
-	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Update team
-	if _, err := config.MI.DB.Collection("teams").UpdateOne(ctx, bson.M{"_id": team.ID}, bson.M{"$unset": "backdrop_url"}); err != nil {
-		fmt.Printf("[RemoveTeamBackdrop] Error updating team: %v\n", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
-
-	// Attempt to delete backdrop from storage
-	key := fmt.Sprintf("%s/%s", team.Name, team.AvatarURL)
-	if _, err := config.SI.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: &config.SI.MediaBucket,
-		Key:    &key,
-	}); err != nil {
-		fmt.Printf("[RemoveTeamBackdrop] Error deleting backdrop from storage: %v\n", err)
-	}
-
-	team.AvatarURL = ""
-	return c.JSON(team)
 }
