@@ -509,3 +509,32 @@ func InviteToTeam(c *fiber.Ctx) error {
 
 	return nil
 }
+
+// Check if the specified team name is available to use.
+func IsTeamNameAvailable(c *fiber.Ctx) error {
+	teamName := c.Params("team_name")
+
+	// Check if team name is available
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var team models.Team
+	if err := config.MI.DB.Collection("teams").FindOne(ctx,
+		bson.M{"name": teamName},
+	).Decode(&team); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"available": true,
+			})
+		}
+
+		fmt.Printf("Error checking if team name \"%s\" is available: %v\n", teamName, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"available": false,
+	})
+}

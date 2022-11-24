@@ -16,4 +16,5 @@ func RouteTeams(router fiber.Router) {
 	router.Put("/:team_name", middleware.HasTeamAccess(models.RoleAdmin), controllers.UpdateTeam)
 	router.Put("/:team_name/usage", middleware.HasTeamAccess(models.RoleCollab), controllers.UpdateTeamUsage)
 	router.Delete("/:team_name", middleware.HasTeamAccess(models.RoleOwner), controllers.DeleteTeam)
+	router.Get("/:team_name/available", controllers.IsTeamNameAvailable)
 }
