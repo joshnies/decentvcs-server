@@ -9,5 +9,5 @@ import (
 func RouteBilling(router fiber.Router) {
 	router.Use(middleware.IsAuthenticated)
 
-	router.Post("/subscriptions", controllers.CreateSubscription)
+	router.Post("/subscriptions", controllers.GetOrCreateBillingSubscription)
 }

@@ -51,6 +51,7 @@ func main() {
 	routes.RouteUserData(app.Group("/users"))
 	routes.RouteTeams(app.Group("/teams"))
 	routes.RouteAccessKeys(app.Group("/teams/:team_name/access_keys"))
+	routes.RouteBilling(app.Group("/billing"))
 
 	projectGroup := app.Group("/projects/:team_name/:project_name")
 	routes.RouteProjects(projectGroup)

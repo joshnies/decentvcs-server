@@ -14,8 +14,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// Create a new billing subscription.
-func CreateSubscription(c *fiber.Ctx) error {
+// Get or create a new billing subscription.
+func GetOrCreateBillingSubscription(c *fiber.Ctx) error {
 	userData := auth.GetUserDataFromContext(c)
 	stytchUser := auth.GetStytchUserFromContext(c)
 
@@ -81,24 +81,46 @@ func CreateSubscription(c *fiber.Ctx) error {
 		stripeCustomer = existingStripeCustomer
 	}
 
-	// Create Stripe subscription (incomplete)
-	subParams := &stripe.SubscriptionParams{
-		Customer: stripe.String(stripeCustomer.ID),
-		Items: []*stripe.SubscriptionItemsParams{
-			{
-				Price: stripe.String(config.I.Stripe.CloudPlanPriceID),
+	if userData.StripeSubscriptionID == "" {
+		// Create Stripe subscription (incomplete)
+		subParams := &stripe.SubscriptionParams{
+			Customer: stripe.String(stripeCustomer.ID),
+			Items: []*stripe.SubscriptionItemsParams{
+				{
+					Price: stripe.String(config.I.Stripe.CloudPlanPriceID),
+				},
 			},
-		},
-		PaymentSettings: &stripe.SubscriptionPaymentSettingsParams{
-			SaveDefaultPaymentMethod: stripe.String("on_subscription"),
-		},
-		PaymentBehavior: stripe.String("default_incomplete"),
-	}
-	subParams.AddExpand("latest_invoice.payment_intent")
+			PaymentSettings: &stripe.SubscriptionPaymentSettingsParams{
+				SaveDefaultPaymentMethod: stripe.String("on_subscription"),
+			},
+			PaymentBehavior: stripe.String("default_incomplete"),
+		}
+		subParams.AddExpand("latest_invoice.payment_intent")
 
-	stripeSub, err := subscription.New(subParams)
+		stripeSub, err := subscription.New(subParams)
+		if err != nil {
+			fmt.Printf("Error creating Stripe subscription for user %s: %+v\n", userData.ID, err)
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Internal server error",
+			})
+		}
+
+		// Return Stripe subscription's client secret
+		return c.JSON(fiber.Map{
+			"subscription_id": stripeSub.ID,
+			"client_secret":   stripeSub.LatestInvoice.PaymentIntent.ClientSecret,
+		})
+	}
+
+	// Get existing Stripe subscription
+	stripeSub, err := subscription.Get(userData.StripeSubscriptionID, nil)
 	if err != nil {
-		fmt.Printf("Error creating Stripe subscription for user %s: %+v\n", userData.ID, err)
+		fmt.Printf(
+			"Error getting Stripe subscription (%s) for user %s: %+v\n",
+			userData.StripeSubscriptionID,
+			userData.ID,
+			err,
+		)
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
