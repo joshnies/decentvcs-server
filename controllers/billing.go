@@ -7,6 +7,7 @@ import (
 
 	"github.com/decentvcs/server/config"
 	"github.com/decentvcs/server/lib/auth"
+	"github.com/decentvcs/server/lib/team_lib"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stripe/stripe-go/v74"
 	"github.com/stripe/stripe-go/v74/customer"
@@ -18,6 +19,7 @@ import (
 func GetOrCreateBillingSubscription(c *fiber.Ctx) error {
 	userData := auth.GetUserDataFromContext(c)
 	stytchUser := auth.GetStytchUserFromContext(c)
+	team := team_lib.GetTeamFromContext(c)
 
 	var stripeCustomer *stripe.Customer
 	if userData.StripeCustomerID == "" {
@@ -88,6 +90,9 @@ func GetOrCreateBillingSubscription(c *fiber.Ctx) error {
 			Items: []*stripe.SubscriptionItemsParams{
 				{
 					Price: stripe.String(config.I.Stripe.CloudPlanPriceID),
+					Metadata: map[string]string{
+						"team_id": team.ID.Hex(),
+					},
 				},
 			},
 			PaymentSettings: &stripe.SubscriptionPaymentSettingsParams{
