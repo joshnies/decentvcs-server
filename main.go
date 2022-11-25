@@ -50,10 +50,10 @@ func main() {
 	routes.RouteStytch(app.Group("/stytch"))
 	routes.RouteUserData(app.Group("/users"))
 	routes.RouteTeams(app.Group("/teams"))
+	routes.RouteBilling(app.Group("/billing"))
 
 	teamGroup := app.Group("/teams/:team_name")
 	routes.RouteAccessKeys(teamGroup.Group("/access_keys"))
-	routes.RouteBilling(teamGroup.Group("/billing"))
 
 	projectGroup := app.Group("/projects/:team_name/:project_name")
 	routes.RouteProjects(projectGroup)
