@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
+	"github.com/stripe/stripe-go/v74"
 )
 
 type EmailTemplatesConfig struct {
@@ -25,6 +26,10 @@ type StytchConfig struct {
 	InviteRedirectURL       string
 }
 
+type StripeConfig struct {
+	CloudPlanPriceID string
+}
+
 type Config struct {
 	Debug           bool
 	LogResponseBody bool
@@ -33,6 +38,7 @@ type Config struct {
 	MaxInviteCount  int
 	Stytch          StytchConfig
 	Email           EmailConfig
+	Stripe          StripeConfig
 }
 
 // Global config instance
@@ -95,6 +101,21 @@ func InitConfig() {
 		log.Fatal("SENDGRID_API_KEY environment variable is not set")
 	}
 
+	// Stripe
+	stripeApiKey := os.Getenv("STRIPE_API_KEY")
+	if stripeApiKey == "" {
+		log.Fatal("STRIPE_API_KEY environment variable is not set")
+	}
+
+	stripeCloudPlanPriceID := os.Getenv("STRIPE_CLOUD_PLAN_PRICE_ID")
+	if stripeCloudPlanPriceID == "" {
+		log.Fatal("STRIPE_CLOUD_PLAN_PRICE_ID environment variable is not set")
+	}
+
+	// Configure global Stripe instance
+	stripe.Key = stripeApiKey
+
+	// Construct and assign config instance
 	I = Config{
 		Debug:           os.Getenv("DEBUG") == "1",
 		LogResponseBody: os.Getenv("DEBUG_RES") == "1",
@@ -112,6 +133,9 @@ func InitConfig() {
 			Templates: EmailTemplatesConfig{
 				InviteExistingUser: "d-14be2f90a89745fbb53d531e80fd9a14",
 			},
+		},
+		Stripe: StripeConfig{
+			CloudPlanPriceID: stripeCloudPlanPriceID,
 		},
 	}
 }

@@ -21,6 +21,10 @@ type UserData struct {
 	DefaultTeamID primitive.ObjectID `json:"default_team_id" bson:"default_team_id"`
 	// URL of the user's avatar.
 	AvatarURL string `json:"avatar_url,omitempty" bson:"avatar_url,omitempty"`
+	// Stripe customer ID.
+	StripeCustomerID string `json:"stripe_customer_id,omitempty" bson:"stripe_customer_id,omitempty"`
+	// ID of the current subscription this user has in Stripe.
+	StripeSubscriptionID string `json:"stripe_subscription_id,omitempty" bson:"stripe_subscription_id,omitempty"`
 }
 
 // Request body for `UpdateUserData`.

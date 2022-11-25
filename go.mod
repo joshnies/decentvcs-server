@@ -13,6 +13,7 @@ require (
 	github.com/lucsky/cuid v1.2.1
 	github.com/samber/lo v1.25.0
 	github.com/sendgrid/sendgrid-go v3.11.1+incompatible
+	github.com/stripe/stripe-go/v74 v74.1.0
 	github.com/stytchauth/stytch-go/v5 v5.6.1
 	go.mongodb.org/mongo-driver v1.9.0
 )
