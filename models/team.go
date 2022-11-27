@@ -6,14 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type Plan string
-
-const (
-	PlanTrial      Plan = "trial"
-	PlanCloud      Plan = "cloud"
-	PlanEnterprise Plan = "enterprise"
-)
-
 // [Database model]
 //
 // Team that owns projects.
@@ -35,10 +27,6 @@ type Team struct {
 type CreateTeamRequest struct {
 	// Team name. Must be unique (validated server-side).
 	Name string `json:"name" validate:"required,min=3,max=64"`
-	// Plan that this team subscribes to.
-	Plan Plan `json:"plan"`
-	// Unix timestamp of when the billing period started.
-	PeriodStart time.Time `json:"period_start"`
 	// URL of the avatar image.
 	AvatarURL string `json:"avatar_url,omitempty"`
 }
@@ -60,10 +48,4 @@ type UpdateTeamUsageRequest struct {
 	// Additional bandwidth used in MB. This will be added to the team's current bandwidth usage.
 	// All projects within the team count towards this total.
 	BandwidthUsedMB float64 `json:"bandwidth_used_mb" validate:"gte=0"`
-}
-
-// Request body for `UpdateOneTeamPlan`.
-type UpdateTeamPlanRequest struct {
-	// Plan that this team subscribes to.
-	Plan Plan `json:"plan" validate:"min=1"`
 }

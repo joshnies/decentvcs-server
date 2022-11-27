@@ -95,13 +95,7 @@ func GetManyTeams(c *fiber.Ctx) error {
 
 // Create a new team.
 func CreateTeam(c *fiber.Ctx) error {
-	// Get user ID
-	userID, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
+	userData := auth.GetUserDataFromContext(c)
 
 	// Parse request body
 	var reqBody models.CreateTeamRequest
@@ -118,18 +112,19 @@ func CreateTeam(c *fiber.Ctx) error {
 		})
 	}
 
+	requestedTeamName := strings.ToLower(reqBody.Name)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Check if team name is unique
-	var existingTeam models.Team
-	err = config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": reqBody.Name}).Decode(&existingTeam)
-	if err == nil || !errors.Is(err, mongo.ErrNoDocuments) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "A team with that name already exists",
-		})
-	}
-	if err != nil {
+	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": requestedTeamName}).Err(); err != nil {
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "A team with that name already exists",
+			})
+		}
+
 		fmt.Printf("Error checking if team name is unique: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
@@ -141,7 +136,7 @@ func CreateTeam(c *fiber.Ctx) error {
 	team := models.Team{
 		ID:        teamID,
 		CreatedAt: time.Now(),
-		Name:      reqBody.Name,
+		Name:      requestedTeamName,
 	}
 
 	if _, err := config.MI.DB.Collection("teams").InsertOne(ctx, team); err != nil {
@@ -151,11 +146,11 @@ func CreateTeam(c *fiber.Ctx) error {
 	}
 
 	// Add team owner role to user
-	if _, err := config.MI.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
+	if _, err := config.MI.DB.Collection("user_data").UpdateOne(ctx, bson.M{"_id": userData.ID}, bson.M{"$push": bson.M{"roles": models.RoleObject{
 		Role:   models.RoleOwner,
 		TeamID: teamID,
 	}}}); err != nil {
-		fmt.Printf("Error adding team owner role to user: %v\n", err)
+		fmt.Printf("Error adding team owner role to user data: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -274,16 +269,8 @@ func UpdateTeamUsage(c *fiber.Ctx) error {
 // Only team owners can delete a team.
 // A user's default team cannot be deleted.
 func DeleteTeam(c *fiber.Ctx) error {
-	// Get team from context
-	team := c.UserContext().Value(models.ContextKeyTeam).(*models.Team)
-
-	// Get user ID
-	userID, err := auth.GetUserID(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		})
-	}
+	team := team_lib.GetTeamFromContext(c)
+	userData := auth.GetUserDataFromContext(c)
 
 	// Parse request body
 	var reqBody models.CreateTeamRequest
@@ -302,20 +289,6 @@ func DeleteTeam(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// Get user data
-	var userData models.UserData
-	if err := config.MI.DB.Collection("user_data").FindOne(ctx, bson.M{"user_id": userID}).Decode(&userData); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			fmt.Printf("User data not found for user with ID \"%s\"", userID)
-		} else {
-			fmt.Printf("Error getting user data: %v\n", err)
-		}
-
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
-	}
 
 	// Ensure deleting team is not the default for the user
 	if team.ID.Hex() == userData.DefaultTeamID.Hex() {
@@ -507,7 +480,9 @@ func InviteToTeam(c *fiber.Ctx) error {
 		}
 	}
 
-	return nil
+	return c.JSON(fiber.Map{
+		"success": true,
+	})
 }
 
 // Check if the specified team name is available to use.
@@ -518,10 +493,9 @@ func IsTeamNameAvailable(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var team models.Team
 	if err := config.MI.DB.Collection("teams").FindOne(ctx,
 		bson.M{"name": teamName},
-	).Decode(&team); err != nil {
+	).Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"available": true,
