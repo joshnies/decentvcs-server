@@ -118,13 +118,12 @@ func CreateTeam(c *fiber.Ctx) error {
 	defer cancel()
 
 	// Check if team name is unique
-	if err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": requestedTeamName}).Err(); err != nil {
-		if !errors.Is(err, mongo.ErrNoDocuments) {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "A team with that name already exists",
-			})
-		}
-
+	err := config.MI.DB.Collection("teams").FindOne(ctx, bson.M{"name": requestedTeamName}).Err()
+	if err == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "A team with that name already exists",
+		})
+	} else if !errors.Is(err, mongo.ErrNoDocuments) {
 		fmt.Printf("Error checking if team name is unique: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
